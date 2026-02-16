@@ -31,6 +31,14 @@
         .animate-fade-in {
             animation: fade-in 0.3s ease-out forwards;
         }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+            20%, 40%, 60%, 80% { transform: translateX(4px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans">
@@ -40,7 +48,7 @@
 
     <!-- React Logic -->
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useEffect } = React;
 
         // --- Icons (Inline SVGs to replace Lucide dependency) ---
         const Icon = ({ path, className }) => (
@@ -61,12 +69,18 @@
             ChevronLeft: (props) => <Icon {...props} path={<path d="m15 18-6-6 6-6"/>} />,
             ChevronRight: (props) => <Icon {...props} path={<path d="m9 18 6-6-6-6"/>} />,
             List: (props) => <Icon {...props} path={<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>} />,
-            LayoutGrid: (props) => <Icon {...props} path={<><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></>} />
+            LayoutGrid: (props) => <Icon {...props} path={<><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></>} />,
+            Lock: (props) => <Icon {...props} path={<><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />,
+            XCircle: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></>} />
         };
 
         // --- Main App Component ---
         function App() {
-            const [items, setItems] = useState([]);
+            // Initialize items from LocalStorage if available, else empty array
+            const [items, setItems] = useState(() => {
+                const saved = localStorage.getItem('smartAgendaItems');
+                return saved ? JSON.parse(saved) : [];
+            });
             
             // View State
             const [viewMode, setViewMode] = useState('list'); // 'list' | 'month'
@@ -78,7 +92,18 @@
             const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
             const [time, setTime] = useState('09:00');
             const [duration, setDuration] = useState(60); // minutes
+            
+            // Security State
+            const [accessCode, setAccessCode] = useState('');
+            const SECRET_CODE = "ET5#2026";
+            
             const [notification, setNotification] = useState(null);
+
+            // --- Persistence Effect ---
+            // Whenever 'items' changes, save it to LocalStorage
+            useEffect(() => {
+                localStorage.setItem('smartAgendaItems', JSON.stringify(items));
+            }, [items]);
 
             // --- Helpers ---
 
@@ -103,6 +128,17 @@
 
             const handleAddItem = (e) => {
                 e.preventDefault();
+
+                // 1. SECURITY CHECK
+                if (accessCode !== SECRET_CODE) {
+                    setNotification({
+                        type: 'error',
+                        message: 'Incorrect Access Code! Addition denied.'
+                    });
+                    // Clear message after 3 seconds
+                    setTimeout(() => setNotification(null), 3000);
+                    return;
+                }
 
                 if (!courseName || !lessonName) return;
 
@@ -157,12 +193,14 @@
                     });
                 }
 
+                // Reset form fields but keep access code for convenience
                 setCourseName('');
                 setLessonName('');
                 setTimeout(() => setNotification(null), 5000);
             };
 
             const deleteItem = (id) => {
+                // Optional: You could also require the code to delete
                 setItems(items.filter(item => item.id !== id));
             };
 
@@ -363,6 +401,21 @@
                                 </div>
                             </div>
 
+                            {/* Access Code Input */}
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <label className="block text-sm font-medium text-slate-600 mb-1 flex items-center gap-2">
+                                    <Icons.Lock className="w-4 h-4 text-slate-400" />
+                                    Access Code (Required)
+                                </label>
+                                <input
+                                    type="password"
+                                    placeholder="Enter Code to Add..."
+                                    className="w-full p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                    value={accessCode}
+                                    onChange={(e) => setAccessCode(e.target.value)}
+                                />
+                            </div>
+
                             <button
                                 type="submit"
                                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -375,11 +428,15 @@
                             {/* Notification Area */}
                             {notification && (
                             <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 items-start animate-fade-in ${
-                                notification.type === 'warning' 
+                                notification.type === 'error'
+                                ? 'bg-red-50 text-red-800 border border-red-200 animate-shake'
+                                : notification.type === 'warning' 
                                 ? 'bg-amber-50 text-amber-800 border border-amber-200' 
                                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                             }`}>
-                                {notification.type === 'warning' ? <Icons.AlertCircle className="w-5 h-5 shrink-0" /> : <Icons.CheckCircle2 className="w-5 h-5 shrink-0" />}
+                                {notification.type === 'error' ? <Icons.XCircle className="w-5 h-5 shrink-0" /> : 
+                                 notification.type === 'warning' ? <Icons.AlertCircle className="w-5 h-5 shrink-0" /> : 
+                                 <Icons.CheckCircle2 className="w-5 h-5 shrink-0" />}
                                 <p>{notification.message}</p>
                             </div>
                             )}
