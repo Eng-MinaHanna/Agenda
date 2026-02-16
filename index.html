@@ -95,7 +95,8 @@
             
             // Security State
             const [accessCode, setAccessCode] = useState('');
-            const SECRET_CODE = "ET5#2026";
+            const SECRET_ADD_CODE = "ET5#2026";
+            const SECRET_DELETE_CODE = "IEEE#ET5#SB";
             
             const [notification, setNotification] = useState(null);
 
@@ -129,8 +130,8 @@
             const handleAddItem = (e) => {
                 e.preventDefault();
 
-                // 1. SECURITY CHECK
-                if (accessCode !== SECRET_CODE) {
+                // 1. SECURITY CHECK (For Adding)
+                if (accessCode !== SECRET_ADD_CODE) {
                     setNotification({
                         type: 'error',
                         message: 'Incorrect Access Code! Addition denied.'
@@ -200,8 +201,24 @@
             };
 
             const deleteItem = (id) => {
-                // Optional: You could also require the code to delete
+                // 2. SECURITY CHECK (For Deleting)
+                const userCode = prompt("Enter the security code to delete:");
+                
+                if (userCode !== SECRET_DELETE_CODE) {
+                    setNotification({
+                        type: 'error',
+                        message: 'Incorrect deletion code! Delete denied.'
+                    });
+                    setTimeout(() => setNotification(null), 3000);
+                    return;
+                }
+
                 setItems(items.filter(item => item.id !== id));
+                setNotification({
+                    type: 'success',
+                    message: 'Item deleted successfully.'
+                });
+                setTimeout(() => setNotification(null), 3000);
             };
 
             const changeMonth = (offset) => {
