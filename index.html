@@ -1,427 +1,497 @@
-import React, { useState } from 'react';
-import { Calendar, Clock, BookOpen, Plus, Trash2, ArrowRight, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, LayoutGrid, List } from 'lucide-react';
-
-export default function App() {
-  const [items, setItems] = useState([]);
-  
-  // View State
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'month'
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-
-  // Form State
-  const [courseName, setCourseName] = useState('');
-  const [lessonName, setLessonName] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState('09:00');
-  const [duration, setDuration] = useState(60); // minutes
-  const [notification, setNotification] = useState(null);
-
-  // --- Helpers ---
-
-  const formatDate = (dateStr) => {
-    const options = { weekday: 'short', month: 'short', day: 'numeric' };
-    return new Date(dateStr).toLocaleDateString('en-US', options);
-  };
-
-  const formatTime = (dateObj) => {
-    return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-  };
-
-  const getDaysInMonth = (date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  };
-
-  const getFirstDayOfMonth = (date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-  };
-
-  // --- Handlers ---
-
-  const handleAddItem = (e) => {
-    e.preventDefault();
-
-    if (!courseName || !lessonName) return;
-
-    let proposedStart = new Date(`${date}T${time}`);
-    let durationMs = duration * 60 * 1000;
-    let proposedEnd = new Date(proposedStart.getTime() + durationMs);
-    let originalTime = formatTime(proposedStart);
-
-    // Filter items for this specific day
-    const dayItems = items.filter(item => {
-      const itemDate = new Date(item.start);
-      return itemDate.toDateString() === proposedStart.toDateString();
-    });
-
-    dayItems.sort((a, b) => new Date(a.start) - new Date(b.start));
-
-    let isRescheduled = false;
-
-    // Smart Scheduling: Stack items if they overlap
-    for (let item of dayItems) {
-      const existingStart = new Date(item.start);
-      const existingEnd = new Date(item.end);
-
-      if (proposedStart < existingEnd && proposedEnd > existingStart) {
-        proposedStart = existingEnd; 
-        proposedEnd = new Date(proposedStart.getTime() + durationMs);
-        isRescheduled = true;
-      }
-    }
-
-    const newItem = {
-      id: Date.now(),
-      course: courseName,
-      lesson: lessonName,
-      start: proposedStart.toISOString(),
-      end: proposedEnd.toISOString(),
-      duration: duration
-    };
-
-    const updatedItems = [...items, newItem].sort((a, b) => new Date(a.start) - new Date(b.start));
-    setItems(updatedItems);
-
-    if (isRescheduled) {
-      setNotification({
-        type: 'warning',
-        message: `Conflict! "${courseName}" moved to ${formatTime(proposedStart)}.`
-      });
-    } else {
-      setNotification({
-        type: 'success',
-        message: `Added "${courseName}" successfully.`
-      });
-    }
-
-    setCourseName('');
-    setLessonName('');
-    setTimeout(() => setNotification(null), 5000);
-  };
-
-  const deleteItem = (id) => {
-    setItems(items.filter(item => item.id !== id));
-  };
-
-  const changeMonth = (offset) => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1));
-  };
-
-  // --- Renderers ---
-
-  const renderCalendar = () => {
-    const daysInMonth = getDaysInMonth(currentMonth);
-    const firstDay = getFirstDayOfMonth(currentMonth);
-    const days = [];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Agenda</title>
     
-    // Empty slots for previous month days
-    for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-24 bg-slate-50/50 border border-slate-100"></div>);
-    }
+    <!-- 1. Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- 3. Babel (to translate JSX in the browser) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    // Actual days
-    for (let d = 1; d <= daysInMonth; d++) {
-      const currentDayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d);
-      const dateStr = currentDayDate.toDateString();
-      
-      // Find items for this day
-      const daysEvents = items.filter(item => new Date(item.start).toDateString() === dateStr);
-      const count = daysEvents.length;
+    <style>
+        /* Custom scrollbar hiding utility */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
 
-      // Determine "Busy-ness" color
-      let statusColor = "bg-white"; // default
-      let borderColor = "border-slate-100";
-      if (count > 0 && count <= 2) {
-        statusColor = "bg-emerald-50"; 
-        borderColor = "border-emerald-200";
-      } else if (count > 2 && count <= 4) {
-        statusColor = "bg-amber-50";
-        borderColor = "border-amber-200";
-      } else if (count > 4) {
-        statusColor = "bg-red-50";
-        borderColor = "border-red-200";
-      }
+    <!-- App Root -->
+    <div id="root"></div>
 
-      // Check if it matches the selected form date
-      const isSelected = new Date(date).toDateString() === dateStr;
+    <!-- React Logic -->
+    <script type="text/babel">
+        const { useState } = React;
 
-      days.push(
-        <div 
-          key={d} 
-          onClick={() => setDate(currentDayDate.toISOString().split('T')[0])}
-          className={`h-24 p-2 border ${borderColor} ${statusColor} relative cursor-pointer hover:shadow-md transition-all ${isSelected ? 'ring-2 ring-indigo-500 ring-inset' : ''}`}
-        >
-          <div className="flex justify-between items-start">
-            <span className={`text-sm font-semibold ${isSelected ? 'text-indigo-600' : 'text-slate-700'}`}>{d}</span>
-            {count > 0 && (
-              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-white shadow-sm text-slate-600 border border-slate-200">
-                {count}
-              </span>
-            )}
-          </div>
-          
-          <div className="mt-2 space-y-1 overflow-y-auto max-h-[52px] scrollbar-hide">
-            {daysEvents.slice(0, 3).map((ev, idx) => (
-              <div key={idx} className="text-[10px] truncate bg-white/60 px-1 rounded text-slate-600">
-                {ev.course}
-              </div>
-            ))}
-            {count > 3 && <div className="text-[9px] text-slate-400 pl-1">+{count - 3} more</div>}
-          </div>
-        </div>
-      );
-    }
+        // --- Icons (Inline SVGs to replace Lucide dependency) ---
+        const Icon = ({ path, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {path}
+            </svg>
+        );
 
-    return (
-      <div className="animate-fade-in">
-        {/* Calendar Header */}
-        <div className="flex justify-between items-center mb-4 px-2">
-          <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-slate-100 rounded-full">
-            <ChevronLeft className="w-5 h-5 text-slate-500" />
-          </button>
-          <h3 className="text-lg font-bold text-slate-800">
-            {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </h3>
-          <button onClick={() => changeMonth(1)} className="p-1 hover:bg-slate-100 rounded-full">
-            <ChevronRight className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-        
-        {/* Calendar Grid Header */}
-        <div className="grid grid-cols-7 mb-2 text-center">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-              {day}
-            </div>
-          ))}
-        </div>
+        const Icons = {
+            BookOpen: (props) => <Icon {...props} path={<><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>} />,
+            Plus: (props) => <Icon {...props} path={<><path d="M5 12h14"/><path d="M12 5v14"/></>} />,
+            Calendar: (props) => <Icon {...props} path={<><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>} />,
+            Clock: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>} />,
+            Trash2: (props) => <Icon {...props} path={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>} />,
+            ArrowRight: (props) => <Icon {...props} path={<><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></>} />,
+            AlertCircle: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>} />,
+            CheckCircle2: (props) => <Icon {...props} path={<><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></>} />,
+            ChevronLeft: (props) => <Icon {...props} path={<path d="m15 18-6-6 6-6"/>} />,
+            ChevronRight: (props) => <Icon {...props} path={<path d="m9 18 6-6-6-6"/>} />,
+            List: (props) => <Icon {...props} path={<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>} />,
+            LayoutGrid: (props) => <Icon {...props} path={<><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></>} />
+        };
 
-        {/* Calendar Grid Body */}
-        <div className="grid grid-cols-7 bg-slate-200 gap-px border border-slate-200 rounded-lg overflow-hidden">
-          {days}
-        </div>
-        
-        {/* Legend */}
-        <div className="flex gap-4 mt-4 justify-center text-xs text-slate-500">
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-50 border border-emerald-200 rounded"></div> Light</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-amber-50 border border-amber-200 rounded"></div> Medium</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-50 border border-red-200 rounded"></div> Busy</div>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans p-4 md:p-8">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* HEADER */}
-        <div className="lg:col-span-12 mb-4">
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-            <BookOpen className="text-indigo-600 w-8 h-8" />
-            Smart Agenda
-          </h1>
-          <p className="text-slate-500 mt-2">
-            Add your courses. Check the calendar to see your monthly schedule density.
-          </p>
-        </div>
-
-        {/* LEFT COLUMN: ADD (Input Form) */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 sticky top-6">
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-indigo-600" />
-              Add Course & Lesson
-            </h2>
-
-            <form onSubmit={handleAddItem} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Course Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Mathematics"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                  value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Lesson Topic</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Algebra Basics"
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                  value={lessonName}
-                  onChange={(e) => setLessonName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Date</label>
-                  <input
-                    type="date"
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Start Time</label>
-                  <input
-                    type="time"
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Duration (Minutes)</label>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="range"
-                    min="15"
-                    max="180"
-                    step="15"
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    className="flex-grow h-2 bg-indigo-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                  />
-                  <span className="text-sm font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full whitespace-nowrap">
-                    {duration} min
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Add to Agenda
-              </button>
-            </form>
-
-            {/* Notification Area */}
-            {notification && (
-              <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 items-start animate-fade-in ${
-                notification.type === 'warning' 
-                  ? 'bg-amber-50 text-amber-800 border border-amber-200' 
-                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-              }`}>
-                {notification.type === 'warning' ? <AlertCircle className="w-5 h-5 shrink-0" /> : <CheckCircle2 className="w-5 h-5 shrink-0" />}
-                <p>{notification.message}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: AGENDA & CALENDAR VIEW */}
-        <div className="lg:col-span-8">
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden min-h-[600px] flex flex-col">
+        // --- Main App Component ---
+        function App() {
+            const [items, setItems] = useState([]);
             
-            {/* View Switcher Header */}
-            <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
-              <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200">
-                <button 
-                  onClick={() => setViewMode('list')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-                >
-                  <List className="w-4 h-4" /> List
-                </button>
-                <button 
-                  onClick={() => setViewMode('month')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'month' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-                >
-                  <LayoutGrid className="w-4 h-4" /> Month
-                </button>
-              </div>
-              <span className="text-sm text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-                {items.length} Total Items
-              </span>
-            </div>
+            // View State
+            const [viewMode, setViewMode] = useState('list'); // 'list' | 'month'
+            const [currentMonth, setCurrentMonth] = useState(new Date());
 
-            <div className="p-6 flex-grow">
-              {viewMode === 'month' ? (
-                renderCalendar()
-              ) : (
-                // LIST VIEW
-                items.length === 0 ? (
-                  <div className="text-center py-20 opacity-50">
-                    <Clock className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                    <p className="text-xl font-medium text-slate-400">No courses scheduled yet.</p>
-                    <p className="text-slate-400">Use the form to add your first lesson.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4 animate-fade-in">
-                    {/* Group items by Date */}
-                    {Object.entries(
-                      items.reduce((acc, item) => {
-                        const dateKey = new Date(item.start).toDateString();
-                        if (!acc[dateKey]) acc[dateKey] = [];
-                        acc[dateKey].push(item);
-                        return acc;
-                      }, {})
-                    ).map(([dateKey, daysItems]) => (
-                      <div key={dateKey} className="mb-8">
-                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 ml-2">
-                          {formatDate(daysItems[0].start)}
-                        </h3>
-                        <div className="relative border-l-2 border-indigo-100 ml-4 space-y-6 pb-2">
-                          {daysItems.map((item, index) => {
-                            const startDate = new Date(item.start);
-                            const endDate = new Date(item.end);
-                            
-                            return (
-                              <div key={item.id} className="relative pl-8 group">
-                                <div className="absolute -left-[9px] top-4 w-4 h-4 rounded-full bg-white border-4 border-indigo-500 group-hover:scale-110 transition-transform"></div>
-                                
-                                <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                  <div className="min-w-[120px]">
-                                    <div className="text-xl font-bold text-indigo-900">
-                                      {formatTime(startDate)}
-                                    </div>
-                                    <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 mt-1">
-                                      {formatTime(endDate)}
-                                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">
-                                        {item.duration}m
-                                      </span>
-                                    </div>
-                                  </div>
+            // Form State
+            const [courseName, setCourseName] = useState('');
+            const [lessonName, setLessonName] = useState('');
+            const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+            const [time, setTime] = useState('09:00');
+            const [duration, setDuration] = useState(60); // minutes
+            const [notification, setNotification] = useState(null);
 
-                                  <div className="flex-grow border-l-0 sm:border-l-2 border-slate-100 sm:pl-6">
-                                    <h4 className="text-lg font-bold text-slate-800">{item.course}</h4>
-                                    <p className="text-slate-500 text-sm flex items-center gap-1">
-                                      <ArrowRight className="w-3 h-3" /> {item.lesson}
-                                    </p>
-                                  </div>
+            // --- Helpers ---
 
-                                  <button
-                                    onClick={() => deleteItem(item.id)}
-                                    className="text-slate-300 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50 self-end sm:self-center"
-                                  >
-                                    <Trash2 className="w-5 h-5" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
+            const formatDate = (dateStr) => {
+                const options = { weekday: 'short', month: 'short', day: 'numeric' };
+                return new Date(dateStr).toLocaleDateString('en-US', options);
+            };
+
+            const formatTime = (dateObj) => {
+                return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            };
+
+            const getDaysInMonth = (date) => {
+                return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+            };
+
+            const getFirstDayOfMonth = (date) => {
+                return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+            };
+
+            // --- Handlers ---
+
+            const handleAddItem = (e) => {
+                e.preventDefault();
+
+                if (!courseName || !lessonName) return;
+
+                let proposedStart = new Date(`${date}T${time}`);
+                let durationMs = duration * 60 * 1000;
+                let proposedEnd = new Date(proposedStart.getTime() + durationMs);
+                let originalTime = formatTime(proposedStart);
+
+                // Filter items for this specific day
+                const dayItems = items.filter(item => {
+                    const itemDate = new Date(item.start);
+                    return itemDate.toDateString() === proposedStart.toDateString();
+                });
+
+                dayItems.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+                let isRescheduled = false;
+
+                // Smart Scheduling: Stack items if they overlap
+                for (let item of dayItems) {
+                    const existingStart = new Date(item.start);
+                    const existingEnd = new Date(item.end);
+
+                    if (proposedStart < existingEnd && proposedEnd > existingStart) {
+                        proposedStart = existingEnd; 
+                        proposedEnd = new Date(proposedStart.getTime() + durationMs);
+                        isRescheduled = true;
+                    }
+                }
+
+                const newItem = {
+                    id: Date.now(),
+                    course: courseName,
+                    lesson: lessonName,
+                    start: proposedStart.toISOString(),
+                    end: proposedEnd.toISOString(),
+                    duration: duration
+                };
+
+                const updatedItems = [...items, newItem].sort((a, b) => new Date(a.start) - new Date(b.start));
+                setItems(updatedItems);
+
+                if (isRescheduled) {
+                    setNotification({
+                        type: 'warning',
+                        message: `Conflict! "${courseName}" moved to ${formatTime(proposedStart)}.`
+                    });
+                } else {
+                    setNotification({
+                        type: 'success',
+                        message: `Added "${courseName}" successfully.`
+                    });
+                }
+
+                setCourseName('');
+                setLessonName('');
+                setTimeout(() => setNotification(null), 5000);
+            };
+
+            const deleteItem = (id) => {
+                setItems(items.filter(item => item.id !== id));
+            };
+
+            const changeMonth = (offset) => {
+                setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1));
+            };
+
+            // --- Renderers ---
+
+            const renderCalendar = () => {
+                const daysInMonth = getDaysInMonth(currentMonth);
+                const firstDay = getFirstDayOfMonth(currentMonth);
+                const days = [];
+                
+                // Empty slots for previous month days
+                for (let i = 0; i < firstDay; i++) {
+                    days.push(<div key={`empty-${i}`} className="h-24 bg-slate-50/50 border border-slate-100"></div>);
+                }
+
+                // Actual days
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const currentDayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d);
+                    const dateStr = currentDayDate.toDateString();
+                    
+                    // Find items for this day
+                    const daysEvents = items.filter(item => new Date(item.start).toDateString() === dateStr);
+                    const count = daysEvents.length;
+
+                    // Determine "Busy-ness" color
+                    let statusColor = "bg-white"; // default
+                    let borderColor = "border-slate-100";
+                    if (count > 0 && count <= 2) {
+                        statusColor = "bg-emerald-50"; 
+                        borderColor = "border-emerald-200";
+                    } else if (count > 2 && count <= 4) {
+                        statusColor = "bg-amber-50";
+                        borderColor = "border-amber-200";
+                    } else if (count > 4) {
+                        statusColor = "bg-red-50";
+                        borderColor = "border-red-200";
+                    }
+
+                    // Check if it matches the selected form date
+                    const isSelected = new Date(date).toDateString() === dateStr;
+
+                    days.push(
+                        <div 
+                        key={d} 
+                        onClick={() => setDate(currentDayDate.toISOString().split('T')[0])}
+                        className={`h-24 p-2 border ${borderColor} ${statusColor} relative cursor-pointer hover:shadow-md transition-all ${isSelected ? 'ring-2 ring-indigo-500 ring-inset' : ''}`}
+                        >
+                        <div className="flex justify-between items-start">
+                            <span className={`text-sm font-semibold ${isSelected ? 'text-indigo-600' : 'text-slate-700'}`}>{d}</span>
+                            {count > 0 && (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-white shadow-sm text-slate-600 border border-slate-200">
+                                {count}
+                            </span>
+                            )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+                        
+                        <div className="mt-2 space-y-1 overflow-y-auto max-h-[52px] scrollbar-hide">
+                            {daysEvents.slice(0, 3).map((ev, idx) => (
+                            <div key={idx} className="text-[10px] truncate bg-white/60 px-1 rounded text-slate-600">
+                                {ev.course}
+                            </div>
+                            ))}
+                            {count > 3 && <div className="text-[9px] text-slate-400 pl-1">+{count - 3} more</div>}
+                        </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="animate-fade-in">
+                        {/* Calendar Header */}
+                        <div className="flex justify-between items-center mb-4 px-2">
+                            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-slate-100 rounded-full">
+                                <Icons.ChevronLeft className="w-5 h-5 text-slate-500" />
+                            </button>
+                            <h3 className="text-lg font-bold text-slate-800">
+                                {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                            </h3>
+                            <button onClick={() => changeMonth(1)} className="p-1 hover:bg-slate-100 rounded-full">
+                                <Icons.ChevronRight className="w-5 h-5 text-slate-500" />
+                            </button>
+                        </div>
+                        
+                        {/* Calendar Grid Header */}
+                        <div className="grid grid-cols-7 mb-2 text-center">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                <div key={day} className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                                {day}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Calendar Grid Body */}
+                        <div className="grid grid-cols-7 bg-slate-200 gap-px border border-slate-200 rounded-lg overflow-hidden">
+                            {days}
+                        </div>
+                        
+                        {/* Legend */}
+                        <div className="flex gap-4 mt-4 justify-center text-xs text-slate-500">
+                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-50 border border-emerald-200 rounded"></div> Light</div>
+                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-amber-50 border border-amber-200 rounded"></div> Medium</div>
+                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-50 border border-red-200 rounded"></div> Busy</div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="p-4 md:p-8">
+                    <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        
+                        {/* HEADER */}
+                        <div className="lg:col-span-12 mb-4">
+                        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                            <Icons.BookOpen className="text-indigo-600 w-8 h-8" />
+                            Smart Agenda
+                        </h1>
+                        <p className="text-slate-500 mt-2">
+                            Add your courses. Check the calendar to see your monthly schedule density.
+                        </p>
+                        </div>
+
+                        {/* LEFT COLUMN: ADD (Input Form) */}
+                        <div className="lg:col-span-4 space-y-6">
+                        <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 sticky top-6">
+                            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                            <Icons.Plus className="w-5 h-5 text-indigo-600" />
+                            Add Course & Lesson
+                            </h2>
+
+                            <form onSubmit={handleAddItem} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Course Name</label>
+                                <input
+                                type="text"
+                                placeholder="e.g. Mathematics"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                value={courseName}
+                                onChange={(e) => setCourseName(e.target.value)}
+                                required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Lesson Topic</label>
+                                <input
+                                type="text"
+                                placeholder="e.g. Algebra Basics"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                value={lessonName}
+                                onChange={(e) => setLessonName(e.target.value)}
+                                required
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Date</label>
+                                <input
+                                    type="date"
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                    required
+                                />
+                                </div>
+                                <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Start Time</label>
+                                <input
+                                    type="time"
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    value={time}
+                                    onChange={(e) => setTime(e.target.value)}
+                                    required
+                                />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Duration (Minutes)</label>
+                                <div className="flex items-center gap-4">
+                                <input
+                                    type="range"
+                                    min="15"
+                                    max="180"
+                                    step="15"
+                                    value={duration}
+                                    onChange={(e) => setDuration(Number(e.target.value))}
+                                    className="flex-grow h-2 bg-indigo-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                />
+                                <span className="text-sm font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full whitespace-nowrap">
+                                    {duration} min
+                                </span>
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <Icons.Plus className="w-5 h-5" />
+                                Add to Agenda
+                            </button>
+                            </form>
+
+                            {/* Notification Area */}
+                            {notification && (
+                            <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 items-start animate-fade-in ${
+                                notification.type === 'warning' 
+                                ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            }`}>
+                                {notification.type === 'warning' ? <Icons.AlertCircle className="w-5 h-5 shrink-0" /> : <Icons.CheckCircle2 className="w-5 h-5 shrink-0" />}
+                                <p>{notification.message}</p>
+                            </div>
+                            )}
+                        </div>
+                        </div>
+
+                        {/* RIGHT COLUMN: AGENDA & CALENDAR VIEW */}
+                        <div className="lg:col-span-8">
+                        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden min-h-[600px] flex flex-col">
+                            
+                            {/* View Switcher Header */}
+                            <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
+                            <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200">
+                                <button 
+                                onClick={() => setViewMode('list')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+                                >
+                                <Icons.List className="w-4 h-4" /> List
+                                </button>
+                                <button 
+                                onClick={() => setViewMode('month')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'month' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+                                >
+                                <Icons.LayoutGrid className="w-4 h-4" /> Month
+                                </button>
+                            </div>
+                            <span className="text-sm text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+                                {items.length} Total Items
+                            </span>
+                            </div>
+
+                            <div className="p-6 flex-grow">
+                            {viewMode === 'month' ? (
+                                renderCalendar()
+                            ) : (
+                                // LIST VIEW
+                                items.length === 0 ? (
+                                <div className="text-center py-20 opacity-50">
+                                    <Icons.Clock className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                                    <p className="text-xl font-medium text-slate-400">No courses scheduled yet.</p>
+                                    <p className="text-slate-400">Use the form to add your first lesson.</p>
+                                </div>
+                                ) : (
+                                <div className="space-y-4 animate-fade-in">
+                                    {/* Group items by Date */}
+                                    {Object.entries(
+                                    items.reduce((acc, item) => {
+                                        const dateKey = new Date(item.start).toDateString();
+                                        if (!acc[dateKey]) acc[dateKey] = [];
+                                        acc[dateKey].push(item);
+                                        return acc;
+                                    }, {})
+                                    ).map(([dateKey, daysItems]) => (
+                                    <div key={dateKey} className="mb-8">
+                                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 ml-2">
+                                        {formatDate(daysItems[0].start)}
+                                        </h3>
+                                        <div className="relative border-l-2 border-indigo-100 ml-4 space-y-6 pb-2">
+                                        {daysItems.map((item, index) => {
+                                            const startDate = new Date(item.start);
+                                            const endDate = new Date(item.end);
+                                            
+                                            return (
+                                            <div key={item.id} className="relative pl-8 group">
+                                                <div className="absolute -left-[9px] top-4 w-4 h-4 rounded-full bg-white border-4 border-indigo-500 group-hover:scale-110 transition-transform"></div>
+                                                
+                                                <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div className="min-w-[120px]">
+                                                    <div className="text-xl font-bold text-indigo-900">
+                                                    {formatTime(startDate)}
+                                                    </div>
+                                                    <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 mt-1">
+                                                    {formatTime(endDate)}
+                                                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">
+                                                        {item.duration}m
+                                                    </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex-grow border-l-0 sm:border-l-2 border-slate-100 sm:pl-6">
+                                                    <h4 className="text-lg font-bold text-slate-800">{item.course}</h4>
+                                                    <p className="text-slate-500 text-sm flex items-center gap-1">
+                                                    <Icons.ArrowRight className="w-3 h-3" /> {item.lesson}
+                                                    </p>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => deleteItem(item.id)}
+                                                    className="text-slate-300 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50 self-end sm:self-center"
+                                                >
+                                                    <Icons.Trash2 className="w-5 h-5" />
+                                                </button>
+                                                </div>
+                                            </div>
+                                            );
+                                        })}
+                                        </div>
+                                    </div>
+                                    ))}
+                                </div>
+                                )
+                            )}
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
