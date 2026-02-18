@@ -96,7 +96,7 @@
             const [viewMode, setViewMode] = useState('list');
             const [currentMonth, setCurrentMonth] = useState(new Date());
             const [isLoading, setIsLoading] = useState(true);
-            const [filterDate, setFilterDate] = useState(null); // New state for filtering
+            const [filterDate, setFilterDate] = useState(null); 
 
             // Form State
             const [courseName, setCourseName] = useState('');
@@ -147,7 +147,6 @@
                     console.error('Error fetching:', error);
                     setNotification({ type: 'error', message: 'Connection Error' });
                 } else {
-                    // Map DB columns to App state structure
                     const mappedData = data.map(item => ({
                         id: item.id,
                         course: item.course,
@@ -195,23 +194,35 @@
                 let durationMs = duration * 60 * 1000;
                 let proposedEnd = new Date(proposedStart.getTime() + durationMs);
 
-                // Client-side conflict check
-                const dayItems = items.filter(item => {
-                    const itemDate = new Date(item.start);
-                    return itemDate.toDateString() === proposedStart.toDateString();
+                // --- NEW CONFLICT LOGIC (WARNING ONLY) ---
+                // البحث عن المحاضرات المتعارضة في الوقت
+                const conflictingItems = items.filter(item => {
+                    const itemStart = new Date(item.start);
+                    const itemEnd = new Date(item.end);
+                    // شرط التداخل: وقت البدء المقترح قبل وقت انتهاء القديم، ووقت الانتهاء المقترح بعد وقت بدء القديم
+                    return (proposedStart < itemEnd && proposedEnd > itemStart);
                 });
-                dayItems.sort((a, b) => new Date(a.start) - new Date(b.start));
 
-                let isRescheduled = false;
-                for (let item of dayItems) {
-                    const existingStart = new Date(item.start);
-                    const existingEnd = new Date(item.end);
-                    if (proposedStart < existingEnd && proposedEnd > existingStart) {
-                        proposedStart = existingEnd; 
-                        proposedEnd = new Date(proposedStart.getTime() + durationMs);
-                        isRescheduled = true;
+                if (conflictingItems.length > 0) {
+                    // تحديد نوع الرسالة
+                    const sameCourseConflict = conflictingItems.find(i => i.course === courseName);
+                    
+                    let confirmMessage = "";
+                    if (sameCourseConflict) {
+                        confirmMessage = `تنبيه: يوجد موعد محدد لنفس الكورس (${courseName}) في هذا التوقيت. هل ما زلت تريد إضافته؟`;
+                    } else {
+                        const otherCourseName = conflictingItems[0].course;
+                        confirmMessage = `تنبيه: يوجد تعارض مع كورس "${otherCourseName}" في هذا التوقيت. هل ما زلت تريد إضافته؟`;
                     }
+
+                    // طلب التأكيد من المستخدم
+                    const userConfirmed = window.confirm(confirmMessage);
+                    if (!userConfirmed) {
+                        return; // إلغاء العملية إذا رفض المستخدم
+                    }
+                    // إذا وافق، سيستمر الكود ويضيف الموعد في نفس الوقت
                 }
+                // ----------------------------------------
 
                 const { error } = await supabaseClient
                     .from('agenda_items')
@@ -226,12 +237,12 @@
                 if (error) {
                     setNotification({ type: 'error', message: 'فشل الحفظ في قاعدة البيانات' });
                 } else {
-                    if (isRescheduled) {
-                        setNotification({ type: 'warning', message: `تعارض! تم نقل الموعد إلى ${proposedStart.toLocaleTimeString()}.` });
+                    if (conflictingItems.length > 0) {
+                        setNotification({ type: 'warning', message: `تمت إضافة الموعد المتداخل بنجاح.` });
                     } else {
                         setNotification({ type: 'success', message: `تمت الإضافة بنجاح.` });
                     }
-                    setCourseName(''); // Clear dropdown to default
+                    setCourseName(''); 
                     setLessonName('');
                 }
                 setTimeout(() => setNotification(null), 5000);
@@ -266,7 +277,6 @@
             const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
             const changeMonth = (offset) => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1));
 
-            // Helper to get consistent local date string for comparison
             const getLocalDateString = (dateObj) => {
                 const year = dateObj.getFullYear();
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -274,12 +284,11 @@
                 return `${year}-${month}-${day}`;
             };
 
-            // Updated: Handles both form date update and filtering view
             const handleDateSelect = (selectedDate) => {
                 const localDateString = getLocalDateString(selectedDate);
-                setDate(localDateString); // Update input field
-                setFilterDate(localDateString); // Set filter
-                setViewMode('list'); // Switch to list view
+                setDate(localDateString); 
+                setFilterDate(localDateString); 
+                setViewMode('list'); 
             };
 
             const clearFilter = () => {
@@ -291,41 +300,35 @@
                 const daysInMonth = getDaysInMonth(currentMonth);
                 const firstDay = getFirstDayOfMonth(currentMonth);
                 const days = [];
-                for (let i = 0; i < firstDay; i++) { days.push(<div key={`empty-${i}`} className="h-24 bg-gray-50/50 border border-gray-100"></div>); }
+                for (let i = 0; i < firstDay; i++) { days.push(<div key={`empty-${i}`} className="h-20 bg-gray-50/50 border border-gray-100"></div>); }
                 for (let d = 1; d <= daysInMonth; d++) {
                     const currentDayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d);
                     const dateStr = currentDayDate.toDateString();
                     const daysEvents = items.filter(item => new Date(item.start).toDateString() === dateStr);
                     const count = daysEvents.length;
                     
-                    // --- NEW COLOR LOGIC ---
                     let statusColor = "bg-white"; 
                     let statusBorder = "border-gray-100";
                     let countBadgeColor = "bg-white text-gray-600 border-gray-200";
 
                     if (count > 0) {
                         if (count === 1) {
-                            // LIGHT (Green) -> Only 1 event
                             statusColor = "bg-emerald-50"; 
                             statusBorder = "border-emerald-200";
                             countBadgeColor = "bg-emerald-100 text-emerald-700 border-emerald-200";
                         } else {
-                            // Check unique courses
                             const uniqueCourses = new Set(daysEvents.map(e => e.course));
                             if (uniqueCourses.size === 1) {
-                                // MEDIUM (Yellow) -> Multiple events, SAME course
                                 statusColor = "bg-amber-50"; 
                                 statusBorder = "border-amber-200";
                                 countBadgeColor = "bg-amber-100 text-amber-700 border-amber-200";
                             } else {
-                                // BUSY (Red) -> Multiple events, DIFFERENT courses
                                 statusColor = "bg-red-50"; 
                                 statusBorder = "border-red-200";
                                 countBadgeColor = "bg-red-100 text-red-700 border-red-200";
                             }
                         }
                     }
-                    // -----------------------
                     
                     const currentSelectedDate = new Date(date);
                     const isSelected = currentSelectedDate.getDate() === d && 
@@ -334,72 +337,68 @@
 
                     days.push(
                         <div key={d} onClick={() => handleDateSelect(currentDayDate)} 
-                             className={`h-24 p-2 border ${statusBorder} ${statusColor} relative cursor-pointer hover:shadow-lg transition-all rounded-lg flex flex-col ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 z-10' : ''}`}>
+                             className={`h-20 p-1.5 border ${statusBorder} ${statusColor} relative cursor-pointer hover:shadow-lg transition-all rounded-lg flex flex-col ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 z-10' : ''}`}>
                             <div className="flex justify-between items-start">
-                                <span className={`text-sm font-bold ${isSelected ? 'text-indigo-600' : 'text-gray-700'}`}>{d}</span>
-                                {count > 0 && (<span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm ${countBadgeColor}`}>{count}</span>)}
+                                <span className={`text-xs font-bold ${isSelected ? 'text-indigo-600' : 'text-gray-700'}`}>{d}</span>
+                                {count > 0 && (<span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm ${countBadgeColor}`}>{count}</span>)}
                             </div>
                             <div className="mt-1 space-y-1 overflow-y-auto scrollbar-hide flex-grow">
                                 {daysEvents.slice(0, 3).map((ev, idx) => (
-                                    <div key={idx} className="text-[10px] truncate bg-white/80 px-1.5 py-0.5 rounded text-gray-700 shadow-sm border border-gray-100">
+                                    <div key={idx} className="text-[9px] truncate bg-white/80 px-1 py-0.5 rounded text-gray-700 shadow-sm border border-gray-100">
                                         {ev.course}
                                     </div>
                                 ))}
-                                {count > 3 && <div className="text-[9px] text-gray-400 pl-1">+{count - 3} المزيد</div>}
+                                {count > 3 && <div className="text-[8px] text-gray-400 pl-1">+{count - 3} المزيد</div>}
                             </div>
                         </div>
                     );
                 }
                 return (
                     <div className="animate-fade-in bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
-                        <div className="flex justify-between items-center mb-6 px-2">
-                            <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 hover:text-indigo-600 transition-colors"><Icons.ChevronLeft className="w-5 h-5" /></button>
-                            <h3 className="text-xl font-bold text-gray-800">{currentMonth.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}</h3>
-                            <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 hover:text-indigo-600 transition-colors"><Icons.ChevronRight className="w-5 h-5" /></button>
+                        <div className="flex justify-between items-center mb-4 px-2">
+                            <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-indigo-600 transition-colors"><Icons.ChevronLeft className="w-5 h-5" /></button>
+                            <h3 className="text-lg font-bold text-gray-800">{currentMonth.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}</h3>
+                            <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-indigo-600 transition-colors"><Icons.ChevronRight className="w-5 h-5" /></button>
                         </div>
-                        <div className="grid grid-cols-7 mb-2 text-center text-sm font-semibold text-gray-400">
+                        <div className="grid grid-cols-7 mb-2 text-center text-xs font-semibold text-gray-400">
                             {['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'].map(day => <div key={day} className="uppercase tracking-wide">{day}</div>)}
                         </div>
-                        <div className="grid grid-cols-7 gap-2">
+                        <div className="grid grid-cols-7 gap-1.5">
                             {days}
                         </div>
                         
                         <div className="flex flex-wrap gap-4 mt-6 justify-center text-xs text-gray-500 font-medium">
-                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-emerald-50 border border-emerald-200 rounded-full"></div> محاضرة واحدة (خفيف)</div>
-                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-amber-50 border border-amber-200 rounded-full"></div> نفس الكورس (متوسط)</div>
-                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-red-50 border border-red-200 rounded-full"></div> كورسات مختلفة (مزدحم)</div>
+                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-emerald-50 border border-emerald-200 rounded-full"></div> محاضرة واحدة</div>
+                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-amber-50 border border-amber-200 rounded-full"></div> نفس الكورس</div>
+                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-red-50 border border-red-200 rounded-full"></div> مزدحم</div>
                         </div>
                     </div>
                 );
             };
 
-            // Filter logic for List View
             const displayedItems = filterDate 
                 ? items.filter(item => getLocalDateString(new Date(item.start)) === filterDate)
                 : items;
 
             return (
                 <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans" dir="rtl">
-                    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
                         {/* HEADER */}
                         <div className="lg:col-span-12 mb-2">
-                            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
                                 <div>
-                                    <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
-                                        <div className="bg-indigo-100 p-2 rounded-xl text-indigo-500">
-                                            <Icons.BookOpen className="w-8 h-8" />
+                                    <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                        <div className="bg-indigo-50 p-1.5 rounded-lg text-indigo-600">
+                                            <Icons.BookOpen className="w-5 h-5" />
                                         </div>
-                                        IEEE ET5 SB Agenda  
-                                        <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full flex items-center gap-1 border border-green-200">
+                                        IEEE ET5 SB Agenda
+                                        <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1 border border-green-200">
                                             <Icons.Database className="w-3 h-3" /> متصل
                                         </span>
                                     </h1>
-                                    <p className="text-gray-500 mt-2 mr-1">
-                                        يتم مزامنة الجدول لحظياً مع جميع الأجهزة .
-                                    </p>
                                 </div>
-                                <button onClick={fetchItems} className="text-sm bg-gray-50 hover:bg-gray-100 text-gray-600 px-4 py-2 rounded-xl border border-gray-200 flex items-center gap-2 transition-all">
-                                    <Icons.Refresh className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> 
+                                <button onClick={fetchItems} className="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded-lg border border-gray-200 flex items-center gap-2 transition-all">
+                                    <Icons.Refresh className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> 
                                     {isLoading ? 'جاري التحديث...' : 'تحديث البيانات'}
                                 </button>
                             </div>
@@ -407,20 +406,20 @@
 
                         {/* LEFT: ADD FORM */}
                         <div className="lg:col-span-4 space-y-6">
-                            <div className="bg-white rounded-3xl shadow-lg p-8 border border-gray-100 sticky top-6">
-                                <h2 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-800 pb-4 border-b border-gray-100">
-                                    <span className="bg-indigo-600 text-white p-1.5 rounded-lg"><Icons.Plus className="w-5 h-5" /></span>
-                                    إضافة محاضرة جديدة
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sticky top-4">
+                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-gray-800 pb-3 border-b border-gray-100">
+                                    <span className="bg-indigo-600 text-white p-1 rounded-md"><Icons.Plus className="w-4 h-4" /></span>
+                                    إضافة محاضرة
                                 </h2>
-                                <form onSubmit={handleAddItem} className="space-y-5">
+                                <form onSubmit={handleAddItem} className="space-y-4">
                                     <div className="space-y-1">
-                                        <label className="block text-sm font-semibold text-gray-700">اسم الكورس</label>
+                                        <label className="block text-xs font-semibold text-gray-700">اسم الكورس</label>
                                         <div className="relative">
                                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-                                                <Icons.BookOpen className="w-5 h-5" />
+                                                <Icons.BookOpen className="w-4 h-4" />
                                             </div>
                                             <select 
-                                                className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 appearance-none cursor-pointer"
+                                                className="w-full pr-9 pl-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm appearance-none cursor-pointer"
                                                 value={courseName} 
                                                 onChange={(e) => setCourseName(e.target.value)} 
                                                 required
@@ -431,59 +430,55 @@
                                                 ))}
                                             </select>
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                                                <Icons.ChevronLeft className="w-4 h-4 rotate-[-90deg]" />
+                                                <Icons.ChevronLeft className="w-3 h-3 rotate-[-90deg]" />
                                             </div>
                                         </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="block text-sm font-semibold text-gray-700">عنوان الدرس</label>
+                                        <label className="block text-xs font-semibold text-gray-700">عنوان الدرس</label>
                                         <div className="relative">
                                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-                                                <Icons.List className="w-5 h-5" />
+                                                <Icons.List className="w-4 h-4" />
                                             </div>
-                                            <input type="text" placeholder="مثال: الجبر الخطي" className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400" value={lessonName} onChange={(e) => setLessonName(e.target.value)} required />
+                                            <input type="text" placeholder="مثال: الجبر الخطي" className="w-full pr-9 pl-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm placeholder-gray-400" value={lessonName} onChange={(e) => setLessonName(e.target.value)} required />
                                         </div>
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1">
-                                            <label className="block text-sm font-semibold text-gray-700">التاريخ</label>
-                                            <div className="relative">
-                                                <input type="date" className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm" value={date} onChange={(e) => setDate(e.target.value)} required />
-                                            </div>
+                                            <label className="block text-xs font-semibold text-gray-700">التاريخ</label>
+                                            <input type="date" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm" value={date} onChange={(e) => setDate(e.target.value)} required />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="block text-sm font-semibold text-gray-700">الوقت</label>
-                                            <div className="relative">
-                                                <input type="time" className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm" value={time} onChange={(e) => setTime(e.target.value)} required />
-                                            </div>
+                                            <label className="block text-xs font-semibold text-gray-700">الوقت</label>
+                                            <input type="time" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm" value={time} onChange={(e) => setTime(e.target.value)} required />
                                         </div>
                                     </div>
 
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
-                                            <label className="block text-sm font-semibold text-gray-700">المدة (دقيقة)</label>
-                                            <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg">{duration} دقيقة</span>
+                                            <label className="block text-xs font-semibold text-gray-700">المدة (دقيقة)</label>
+                                            <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">{duration} دقيقة</span>
                                         </div>
-                                        <input type="range" min="15" max="180" step="15" value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
+                                        <input type="range" min="15" max="180" step="15" value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
                                     </div>
 
-                                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                                        <label className="block text-xs font-bold text-amber-800 mb-2 flex items-center gap-2 uppercase tracking-wider">
-                                            <Icons.Lock className="w-4 h-4" /> كود الحماية (مطلوب للإضافة)
+                                    <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
+                                        <label className="block text-[10px] font-bold text-amber-800 mb-1 flex items-center gap-1 uppercase tracking-wider">
+                                            <Icons.Lock className="w-3 h-3" /> كود الحماية
                                         </label>
-                                        <input type="password" placeholder="أدخل الكود هنا..." className="w-full p-2 bg-white border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm text-center tracking-widest" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} />
+                                        <input type="password" placeholder="أدخل الكود..." className="w-full p-2 bg-white border border-amber-200 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm text-center tracking-widest" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} />
                                     </div>
 
-                                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transform transition-all active:scale-95 flex items-center justify-center gap-2 text-lg">
-                                        {isLoading ? <Icons.Refresh className="w-5 h-5 animate-spin" /> : <Icons.Plus className="w-5 h-5" />}
+                                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 text-sm">
+                                        {isLoading ? <Icons.Refresh className="w-4 h-4 animate-spin" /> : <Icons.Plus className="w-4 h-4" />}
                                         {isLoading ? 'جاري الاتصال...' : 'إضافة للأجندة'}
                                     </button>
                                 </form>
                                 {notification && (
-                                    <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 items-start animate-fade-in border ${notification.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : notification.type === 'warning' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
-                                        {notification.type === 'error' ? <Icons.XCircle className="w-5 h-5 shrink-0" /> : notification.type === 'warning' ? <Icons.AlertCircle className="w-5 h-5 shrink-0" /> : <Icons.CheckCircle2 className="w-5 h-5 shrink-0" />}
-                                        <p className="font-medium">{notification.message}</p>
+                                    <div className={`mt-3 p-3 rounded-lg text-xs flex gap-2 items-start animate-fade-in border ${notification.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : notification.type === 'warning' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
+                                        {notification.type === 'error' ? <Icons.XCircle className="w-4 h-4 shrink-0" /> : notification.type === 'warning' ? <Icons.AlertCircle className="w-4 h-4 shrink-0" /> : <Icons.CheckCircle2 className="w-4 h-4 shrink-0" />}
+                                        <p className="font-medium pt-0.5">{notification.message}</p>
                                     </div>
                                 )}
                             </div>
@@ -491,37 +486,37 @@
 
                         {/* RIGHT: AGENDA VIEW */}
                         <div className="lg:col-span-8">
-                            <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
-                                <div className="bg-gray-50/50 p-6 border-b border-gray-100 flex justify-between items-center backdrop-blur-sm sticky top-0 z-10">
+                            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
+                                <div className="bg-gray-50/50 p-4 border-b border-gray-100 flex justify-between items-center backdrop-blur-sm sticky top-0 z-10">
                                     <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl border border-gray-200">
-                                            <button onClick={() => setViewMode('list')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'list' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}><Icons.List className="w-4 h-4" /> قائمة</button>
-                                            <button onClick={() => setViewMode('month')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'month' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}><Icons.LayoutGrid className="w-4 h-4" /> تقويم</button>
+                                        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg border border-gray-200">
+                                            <button onClick={() => setViewMode('list')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}><Icons.List className="w-3.5 h-3.5" /> قائمة</button>
+                                            <button onClick={() => setViewMode('month')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'month' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}><Icons.LayoutGrid className="w-3.5 h-3.5" /> تقويم</button>
                                         </div>
                                         {filterDate && (
-                                            <button onClick={clearFilter} className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-bold border border-red-200 transition-colors animate-fade-in">
-                                                <Icons.X className="w-4 h-4" />
-                                                إلغاء الفلتر
+                                            <button onClick={clearFilter} className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1.5 rounded-md text-xs font-bold border border-red-200 transition-colors animate-fade-in">
+                                                <Icons.X className="w-3 h-3" />
+                                                إلغاء
                                             </button>
                                         )}
                                     </div>
-                                    <span className="text-xs font-bold text-gray-500 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">{displayedItems.length} عنصر</span>
+                                    <span className="text-[10px] font-bold text-gray-500 bg-white px-2 py-1 rounded-full border border-gray-200 shadow-sm">{displayedItems.length} عنصر</span>
                                 </div>
-                                <div className="p-6 flex-grow bg-gray-50/30">
+                                <div className="p-4 flex-grow bg-gray-50/30">
                                     {viewMode === 'month' ? renderCalendar() : (
                                         displayedItems.length === 0 ? (
-                                            <div className="text-center py-32 opacity-60 flex flex-col items-center">
-                                                <div className="bg-gray-100 p-6 rounded-full mb-4">
-                                                    <Icons.Clock className="w-12 h-12 text-gray-400" />
+                                            <div className="text-center py-24 opacity-60 flex flex-col items-center">
+                                                <div className="bg-gray-100 p-4 rounded-full mb-3">
+                                                    <Icons.Clock className="w-8 h-8 text-gray-400" />
                                                 </div>
-                                                <p className="text-2xl font-bold text-gray-700 mb-2">{isLoading ? 'جاري تحميل البيانات...' : (filterDate ? `لا توجد مواعيد في ${filterDate}` : 'لا توجد مواعيد حالياً')}</p>
-                                                <p className="text-gray-500">{filterDate ? 'اختر يوماً آخر أو قم بإلغاء الفلتر.' : 'كن أول من يضيف درساً للأجندة!'}</p>
+                                                <p className="text-lg font-bold text-gray-700 mb-1">{isLoading ? 'جاري تحميل البيانات...' : (filterDate ? `لا توجد مواعيد في ${filterDate}` : 'لا توجد مواعيد حالياً')}</p>
+                                                <p className="text-sm text-gray-500">{filterDate ? 'اختر يوماً آخر أو قم بإلغاء الفلتر.' : 'كن أول من يضيف درساً للأجندة!'}</p>
                                             </div>
                                         ) : (
-                                            <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
+                                            <div className="space-y-4 animate-fade-in max-w-4xl mx-auto">
                                                 {/* Header for Filtered View */}
                                                 {filterDate && (
-                                                    <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-indigo-800 text-sm font-bold text-center mb-4">
+                                                    <div className="bg-indigo-50 border border-indigo-100 p-2 rounded-lg text-indigo-800 text-xs font-bold text-center mb-3">
                                                         عرض المواعيد ليوم: {filterDate}
                                                     </div>
                                                 )}
@@ -532,35 +527,35 @@
                                                     acc[dateKey].push(item);
                                                     return acc;
                                                 }, {})).map(([dateKey, daysItems]) => (
-                                                    <div key={dateKey} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                                                        <div className="bg-indigo-50/50 px-6 py-3 border-b border-indigo-50 flex items-center gap-2">
-                                                            <Icons.Calendar className="w-4 h-4 text-indigo-500" />
-                                                            <h3 className="text-sm font-bold text-indigo-900">{formatDate(daysItems[0].start)}</h3>
+                                                    <div key={dateKey} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                                        <div className="bg-indigo-50/50 px-4 py-2 border-b border-indigo-50 flex items-center gap-2">
+                                                            <Icons.Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                                                            <h3 className="text-xs font-bold text-indigo-900">{formatDate(daysItems[0].start)}</h3>
                                                         </div>
                                                         <div className="divide-y divide-gray-50">
                                                             {daysItems.map((item) => {
                                                                 const startDate = new Date(item.start);
                                                                 const endDate = new Date(item.end);
                                                                 return (
-                                                                    <div key={item.id} className="p-5 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row sm:items-center gap-4 group">
-                                                                        <div className="min-w-[100px] text-center sm:text-right border-l-0 sm:border-l-2 border-indigo-100 pl-0 sm:pl-4">
-                                                                            <div className="text-lg font-black text-gray-800">{formatTime(startDate)}</div>
-                                                                            <div className="text-xs font-semibold text-gray-400 mt-1 bg-gray-100 inline-block px-2 py-0.5 rounded-md">{item.duration} دقيقة</div>
+                                                                    <div key={item.id} className="p-3 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row sm:items-center gap-3 group">
+                                                                        <div className="min-w-[80px] text-center sm:text-right border-l-0 sm:border-l-2 border-indigo-100 pl-0 sm:pl-3">
+                                                                            <div className="text-sm font-black text-gray-800">{formatTime(startDate)}</div>
+                                                                            <div className="text-[10px] font-semibold text-gray-400 mt-0.5 bg-gray-100 inline-block px-1.5 py-0.5 rounded">{item.duration} د</div>
                                                                         </div>
                                                                         <div className="flex-grow">
-                                                                            <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                                            <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
                                                                                 {item.course}
                                                                             </h4>
-                                                                            <p className="text-gray-500 text-sm flex items-center gap-2 mt-1">
-                                                                                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full"></span> {item.lesson}
+                                                                            <p className="text-gray-500 text-xs flex items-center gap-1.5 mt-0.5">
+                                                                                <span className="w-1 h-1 bg-indigo-400 rounded-full"></span> {item.lesson}
                                                                             </p>
                                                                         </div>
                                                                         <button 
                                                                             onClick={() => deleteItem(item.id)} 
-                                                                            className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition-all opacity-100 sm:opacity-0 group-hover:opacity-100 self-end sm:self-center"
+                                                                            className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-all opacity-100 sm:opacity-0 group-hover:opacity-100 self-end sm:self-center"
                                                                             title="حذف"
                                                                         >
-                                                                            <Icons.Trash2 className="w-5 h-5" />
+                                                                            <Icons.Trash2 className="w-4 h-4" />
                                                                         </button>
                                                                     </div>
                                                                 );
