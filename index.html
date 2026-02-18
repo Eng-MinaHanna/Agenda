@@ -19,6 +19,9 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        
+        body { font-family: 'Cairo', sans-serif; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -27,7 +30,7 @@
         .animate-shake { animation: shake 0.4s ease-in-out; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans">
+<body class="bg-gray-50 text-gray-800">
 
     <div id="root"></div>
 
@@ -40,6 +43,14 @@
         const SUPABASE_URL = 'https://aawyndbhkgiombfqinyf.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhd3luZGJoa2dpb21iZnFpbnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNjEwODYsImV4cCI6MjA4NTczNzA4Nn0.up0E5V0kIsmCduvoGlYB9ntcg7Vdgu6TyfrumKo8Pe4';
         // ---------------------------------------------------------
+
+        // --- القائمة المنسدلة للكورسات ---
+        const COURSE_OPTIONS = [
+            "Network", "Front-End", "Back-End", "Problem Solving", "Flutter", "Power", 
+            "Cyber Security", "HR", "PR", "Marketing", "Robotics", "Embedded System", 
+            "Multi Media", "Organization & Logistics", "English", "Photography", 
+            "Video Editing", "Scientific Research"
+        ];
 
         // --- Icons ---
         const Icon = ({ path, className }) => (
@@ -65,8 +76,19 @@
             XCircle: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></>} />,
             Database: (props) => <Icon {...props} path={<><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></>} />,
             Refresh: (props) => <Icon {...props} path={<><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></>} />,
-            Settings: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></>} />
+            Settings: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></>} />,
+            X: (props) => <Icon {...props} path={<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>} />
         };
+
+        function SetupScreen() {
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="bg-white p-8 rounded-2xl shadow-xl max-w-lg w-full text-center border border-gray-200">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-3">Supabase Setup Required</h2>
+                    </div>
+                </div>
+            );
+        }
 
         function App() {
             const [supabaseClient, setSupabaseClient] = useState(null);
@@ -74,11 +96,18 @@
             const [viewMode, setViewMode] = useState('list');
             const [currentMonth, setCurrentMonth] = useState(new Date());
             const [isLoading, setIsLoading] = useState(true);
+            const [filterDate, setFilterDate] = useState(null); // New state for filtering
 
             // Form State
             const [courseName, setCourseName] = useState('');
             const [lessonName, setLessonName] = useState('');
-            const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+            const [date, setDate] = useState(() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            });
             const [time, setTime] = useState('09:00');
             const [duration, setDuration] = useState(60);
             
@@ -135,37 +164,7 @@
             // --- Load Data & Sync & Subscription ---
             useEffect(() => {
                 if (supabaseClient) {
-                    // 1. Fetch Initial Data
                     fetchItems();
-
-                    // 2. Auto-Sync Local Data
-                    const syncLocalData = async () => {
-                        const localDataString = localStorage.getItem('smartAgendaItems');
-                        if (localDataString) {
-                            try {
-                                const localItems = JSON.parse(localDataString);
-                                if (localItems.length > 0) {
-                                    setNotification({ type: 'warning', message: 'Syncing local data...' });
-                                    const itemsToUpload = localItems.map(item => ({
-                                        course: item.course,
-                                        lesson: item.lesson,
-                                        start_time: item.start, 
-                                        end_time: item.end,
-                                        duration: item.duration
-                                    }));
-                                    const { error } = await supabaseClient.from('agenda_items').insert(itemsToUpload);
-                                    if (!error) {
-                                        localStorage.removeItem('smartAgendaItems');
-                                        setNotification({ type: 'success', message: 'Local data synced!' });
-                                        fetchItems();
-                                    }
-                                }
-                            } catch (e) { console.error(e); }
-                        }
-                    };
-                    syncLocalData();
-
-                    // 3. Realtime Subscription
                     const channel = supabaseClient
                         .channel('agenda_changes')
                         .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_items' }, () => {
@@ -185,7 +184,7 @@
                 if (!supabaseClient) return;
 
                 if (accessCode !== SECRET_ADD_CODE) {
-                    setNotification({ type: 'error', message: 'Incorrect Access Code!' });
+                    setNotification({ type: 'error', message: 'كود الإضافة غير صحيح!' });
                     setTimeout(() => setNotification(null), 3000);
                     return;
                 }
@@ -225,14 +224,14 @@
                     }]);
 
                 if (error) {
-                    setNotification({ type: 'error', message: 'Error saving.' });
+                    setNotification({ type: 'error', message: 'فشل الحفظ في قاعدة البيانات' });
                 } else {
                     if (isRescheduled) {
-                        setNotification({ type: 'warning', message: `Conflict! Moved to ${proposedStart.toLocaleTimeString()}.` });
+                        setNotification({ type: 'warning', message: `تعارض! تم نقل الموعد إلى ${proposedStart.toLocaleTimeString()}.` });
                     } else {
-                        setNotification({ type: 'success', message: `Added successfully.` });
+                        setNotification({ type: 'success', message: `تمت الإضافة بنجاح.` });
                     }
-                    setCourseName('');
+                    setCourseName(''); // Clear dropdown to default
                     setLessonName('');
                 }
                 setTimeout(() => setNotification(null), 5000);
@@ -240,17 +239,17 @@
 
             const deleteItem = async (id) => {
                 if (!supabaseClient) return;
-                const userCode = prompt("Enter security code to delete:");
+                const userCode = prompt("أدخل كود الحماية للحذف:");
                 if (userCode !== SECRET_DELETE_CODE) {
-                    setNotification({ type: 'error', message: 'Incorrect deletion code!' });
+                    setNotification({ type: 'error', message: 'كود الحذف غير صحيح!' });
                     setTimeout(() => setNotification(null), 3000);
                     return;
                 }
                 const { error } = await supabaseClient.from('agenda_items').delete().eq('id', id);
                 if (error) {
-                    setNotification({ type: 'error', message: 'Delete failed.' });
+                    setNotification({ type: 'error', message: 'فشل الحذف.' });
                 } else {
-                    setNotification({ type: 'success', message: 'Item deleted.' });
+                    setNotification({ type: 'success', message: 'تم الحذف بنجاح.' });
                 }
                 setTimeout(() => setNotification(null), 3000);
             };
@@ -258,7 +257,7 @@
             // ... helpers ...
             const formatDate = (dateStr) => {
                 const options = { weekday: 'short', month: 'short', day: 'numeric' };
-                return new Date(dateStr).toLocaleDateString('en-US', options);
+                return new Date(dateStr).toLocaleDateString('ar-EG', options);
             };
             const formatTime = (dateObj) => {
                 return new Date(dateObj).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -267,141 +266,302 @@
             const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
             const changeMonth = (offset) => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1));
 
+            // Helper to get consistent local date string for comparison
+            const getLocalDateString = (dateObj) => {
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            // Updated: Handles both form date update and filtering view
+            const handleDateSelect = (selectedDate) => {
+                const localDateString = getLocalDateString(selectedDate);
+                setDate(localDateString); // Update input field
+                setFilterDate(localDateString); // Set filter
+                setViewMode('list'); // Switch to list view
+            };
+
+            const clearFilter = () => {
+                setFilterDate(null);
+            };
+
             // --- Renderers ---
             const renderCalendar = () => {
                 const daysInMonth = getDaysInMonth(currentMonth);
                 const firstDay = getFirstDayOfMonth(currentMonth);
                 const days = [];
-                for (let i = 0; i < firstDay; i++) { days.push(<div key={`empty-${i}`} className="h-24 bg-slate-50/50 border border-slate-100"></div>); }
+                for (let i = 0; i < firstDay; i++) { days.push(<div key={`empty-${i}`} className="h-24 bg-gray-50/50 border border-gray-100"></div>); }
                 for (let d = 1; d <= daysInMonth; d++) {
                     const currentDayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d);
                     const dateStr = currentDayDate.toDateString();
                     const daysEvents = items.filter(item => new Date(item.start).toDateString() === dateStr);
                     const count = daysEvents.length;
-                    let statusColor = "bg-white", borderColor = "border-slate-100";
-                    if (count > 0 && count <= 2) { statusColor = "bg-emerald-50"; borderColor = "border-emerald-200"; } 
-                    else if (count > 2 && count <= 4) { statusColor = "bg-amber-50"; borderColor = "border-amber-200"; } 
-                    else if (count > 4) { statusColor = "bg-red-50"; borderColor = "border-red-200"; }
-                    const isSelected = new Date(date).toDateString() === dateStr;
+                    
+                    // --- NEW COLOR LOGIC ---
+                    let statusColor = "bg-white"; 
+                    let statusBorder = "border-gray-100";
+                    let countBadgeColor = "bg-white text-gray-600 border-gray-200";
+
+                    if (count > 0) {
+                        if (count === 1) {
+                            // LIGHT (Green) -> Only 1 event
+                            statusColor = "bg-emerald-50"; 
+                            statusBorder = "border-emerald-200";
+                            countBadgeColor = "bg-emerald-100 text-emerald-700 border-emerald-200";
+                        } else {
+                            // Check unique courses
+                            const uniqueCourses = new Set(daysEvents.map(e => e.course));
+                            if (uniqueCourses.size === 1) {
+                                // MEDIUM (Yellow) -> Multiple events, SAME course
+                                statusColor = "bg-amber-50"; 
+                                statusBorder = "border-amber-200";
+                                countBadgeColor = "bg-amber-100 text-amber-700 border-amber-200";
+                            } else {
+                                // BUSY (Red) -> Multiple events, DIFFERENT courses
+                                statusColor = "bg-red-50"; 
+                                statusBorder = "border-red-200";
+                                countBadgeColor = "bg-red-100 text-red-700 border-red-200";
+                            }
+                        }
+                    }
+                    // -----------------------
+                    
+                    const currentSelectedDate = new Date(date);
+                    const isSelected = currentSelectedDate.getDate() === d && 
+                                     currentSelectedDate.getMonth() === currentMonth.getMonth() && 
+                                     currentSelectedDate.getFullYear() === currentMonth.getFullYear();
+
                     days.push(
-                        <div key={d} onClick={() => setDate(currentDayDate.toISOString().split('T')[0])} className={`h-24 p-2 border ${borderColor} ${statusColor} relative cursor-pointer hover:shadow-md transition-all ${isSelected ? 'ring-2 ring-indigo-500 ring-inset' : ''}`}>
-                            <div className="flex justify-between items-start"><span className={`text-sm font-semibold ${isSelected ? 'text-indigo-600' : 'text-slate-700'}`}>{d}</span>{count > 0 && (<span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-white shadow-sm text-slate-600 border border-slate-200">{count}</span>)}</div>
-                            <div className="mt-2 space-y-1 overflow-y-auto max-h-[52px] scrollbar-hide">{daysEvents.slice(0, 3).map((ev, idx) => (<div key={idx} className="text-[10px] truncate bg-white/60 px-1 rounded text-slate-600">{ev.course}</div>))}{count > 3 && <div className="text-[9px] text-slate-400 pl-1">+{count - 3} more</div>}</div>
+                        <div key={d} onClick={() => handleDateSelect(currentDayDate)} 
+                             className={`h-24 p-2 border ${statusBorder} ${statusColor} relative cursor-pointer hover:shadow-lg transition-all rounded-lg flex flex-col ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 z-10' : ''}`}>
+                            <div className="flex justify-between items-start">
+                                <span className={`text-sm font-bold ${isSelected ? 'text-indigo-600' : 'text-gray-700'}`}>{d}</span>
+                                {count > 0 && (<span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border shadow-sm ${countBadgeColor}`}>{count}</span>)}
+                            </div>
+                            <div className="mt-1 space-y-1 overflow-y-auto scrollbar-hide flex-grow">
+                                {daysEvents.slice(0, 3).map((ev, idx) => (
+                                    <div key={idx} className="text-[10px] truncate bg-white/80 px-1.5 py-0.5 rounded text-gray-700 shadow-sm border border-gray-100">
+                                        {ev.course}
+                                    </div>
+                                ))}
+                                {count > 3 && <div className="text-[9px] text-gray-400 pl-1">+{count - 3} المزيد</div>}
+                            </div>
                         </div>
                     );
                 }
                 return (
-                    <div className="animate-fade-in">
-                        <div className="flex justify-between items-center mb-4 px-2">
-                            <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-slate-100 rounded-full"><Icons.ChevronLeft className="w-5 h-5 text-slate-500" /></button>
-                            <h3 className="text-lg font-bold text-slate-800">{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
-                            <button onClick={() => changeMonth(1)} className="p-1 hover:bg-slate-100 rounded-full"><Icons.ChevronRight className="w-5 h-5 text-slate-500" /></button>
+                    <div className="animate-fade-in bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+                        <div className="flex justify-between items-center mb-6 px-2">
+                            <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 hover:text-indigo-600 transition-colors"><Icons.ChevronLeft className="w-5 h-5" /></button>
+                            <h3 className="text-xl font-bold text-gray-800">{currentMonth.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}</h3>
+                            <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 hover:text-indigo-600 transition-colors"><Icons.ChevronRight className="w-5 h-5" /></button>
                         </div>
-                        <div className="grid grid-cols-7 mb-2 text-center">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="text-xs font-bold text-slate-400 uppercase tracking-wide">{day}</div>)}</div>
-                        <div className="grid grid-cols-7 bg-slate-200 gap-px border border-slate-200 rounded-lg overflow-hidden">{days}</div>
+                        <div className="grid grid-cols-7 mb-2 text-center text-sm font-semibold text-gray-400">
+                            {['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'].map(day => <div key={day} className="uppercase tracking-wide">{day}</div>)}
+                        </div>
+                        <div className="grid grid-cols-7 gap-2">
+                            {days}
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-4 mt-6 justify-center text-xs text-gray-500 font-medium">
+                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-emerald-50 border border-emerald-200 rounded-full"></div> محاضرة واحدة (خفيف)</div>
+                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-amber-50 border border-amber-200 rounded-full"></div> نفس الكورس (متوسط)</div>
+                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-red-50 border border-red-200 rounded-full"></div> كورسات مختلفة (مزدحم)</div>
+                        </div>
                     </div>
                 );
             };
 
+            // Filter logic for List View
+            const displayedItems = filterDate 
+                ? items.filter(item => getLocalDateString(new Date(item.start)) === filterDate)
+                : items;
+
             return (
-                <div className="p-4 md:p-8">
-                    <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans" dir="rtl">
+                    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
                         {/* HEADER */}
-                        <div className="lg:col-span-12 mb-4">
-                            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div className="lg:col-span-12 mb-2">
+                            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
                                 <div>
-                                    <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-                                        <Icons.BookOpen className="text-indigo-600 w-8 h-8" />
-                                        Smart Agenda 
-                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
-                                            <Icons.Database className="w-3 h-3" /> Online
+                                    <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
+                                        <div className="bg-indigo-100 p-2 rounded-xl text-indigo-600">
+                                            <Icons.BookOpen className="w-8 h-8" />
+                                        </div>
+                                        الأجندة الذكية
+                                        <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full flex items-center gap-1 border border-green-200">
+                                            <Icons.Database className="w-3 h-3" /> متصل
                                         </span>
                                     </h1>
-                                    <p className="text-slate-500 mt-2">
-                                        Connected to Supabase. Updates are live for everyone.
+                                    <p className="text-gray-500 mt-2 mr-1">
+                                        يتم مزامنة الجدول لحظياً مع جميع الأجهزة عبر Supabase.
                                     </p>
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <button onClick={fetchItems} className="text-xs flex items-center gap-1 text-slate-400 hover:text-indigo-600 underline">
-                                        <Icons.Refresh className="w-3 h-3" /> {isLoading ? 'Refreshing...' : 'Refresh Data'}
-                                    </button>
-                                </div>
+                                <button onClick={fetchItems} className="text-sm bg-gray-50 hover:bg-gray-100 text-gray-600 px-4 py-2 rounded-xl border border-gray-200 flex items-center gap-2 transition-all">
+                                    <Icons.Refresh className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> 
+                                    {isLoading ? 'جاري التحديث...' : 'تحديث البيانات'}
+                                </button>
                             </div>
                         </div>
 
                         {/* LEFT: ADD FORM */}
                         <div className="lg:col-span-4 space-y-6">
-                            <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-100 sticky top-6">
-                                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2"><Icons.Plus className="w-5 h-5 text-indigo-600" /> Add Course & Lesson</h2>
-                                <form onSubmit={handleAddItem} className="space-y-4">
-                                    <div><label className="block text-sm font-medium text-slate-600 mb-1">Course Name</label><input type="text" placeholder="e.g. Mathematics" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" value={courseName} onChange={(e) => setCourseName(e.target.value)} required /></div>
-                                    <div><label className="block text-sm font-medium text-slate-600 mb-1">Lesson Topic</label><input type="text" placeholder="e.g. Algebra Basics" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" value={lessonName} onChange={(e) => setLessonName(e.target.value)} required /></div>
+                            <div className="bg-white rounded-3xl shadow-lg p-8 border border-gray-100 sticky top-6">
+                                <h2 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-800 pb-4 border-b border-gray-100">
+                                    <span className="bg-indigo-600 text-white p-1.5 rounded-lg"><Icons.Plus className="w-5 h-5" /></span>
+                                    إضافة محاضرة جديدة
+                                </h2>
+                                <form onSubmit={handleAddItem} className="space-y-5">
+                                    <div className="space-y-1">
+                                        <label className="block text-sm font-semibold text-gray-700">اسم الكورس</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+                                                <Icons.BookOpen className="w-5 h-5" />
+                                            </div>
+                                            <select 
+                                                className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 appearance-none cursor-pointer"
+                                                value={courseName} 
+                                                onChange={(e) => setCourseName(e.target.value)} 
+                                                required
+                                            >
+                                                <option value="" disabled>اختر الكورس...</option>
+                                                {COURSE_OPTIONS.map((course, idx) => (
+                                                    <option key={idx} value={course}>{course}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                                <Icons.ChevronLeft className="w-4 h-4 rotate-[-90deg]" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="block text-sm font-semibold text-gray-700">عنوان الدرس</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+                                                <Icons.List className="w-5 h-5" />
+                                            </div>
+                                            <input type="text" placeholder="مثال: الجبر الخطي" className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400" value={lessonName} onChange={(e) => setLessonName(e.target.value)} required />
+                                        </div>
+                                    </div>
+                                    
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="block text-sm font-medium text-slate-600 mb-1">Date</label><input type="date" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" value={date} onChange={(e) => setDate(e.target.value)} required /></div>
-                                        <div><label className="block text-sm font-medium text-slate-600 mb-1">Start Time</label><input type="time" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" value={time} onChange={(e) => setTime(e.target.value)} required /></div>
+                                        <div className="space-y-1">
+                                            <label className="block text-sm font-semibold text-gray-700">التاريخ</label>
+                                            <div className="relative">
+                                                <input type="date" className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm" value={date} onChange={(e) => setDate(e.target.value)} required />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="block text-sm font-semibold text-gray-700">الوقت</label>
+                                            <div className="relative">
+                                                <input type="time" className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm" value={time} onChange={(e) => setTime(e.target.value)} required />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div><label className="block text-sm font-medium text-slate-600 mb-1">Duration (Minutes)</label><div className="flex items-center gap-4"><input type="range" min="15" max="180" step="15" value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="flex-grow h-2 bg-indigo-100 rounded-lg appearance-none cursor-pointer accent-indigo-600" /><span className="text-sm font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full whitespace-nowrap">{duration} min</span></div></div>
-                                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                        <label className="block text-sm font-medium text-slate-600 mb-1 flex items-center gap-2"><Icons.Lock className="w-4 h-4 text-slate-400" /> Access Code (Required)</label>
-                                        <input type="password" placeholder="Enter Code to Add..." className="w-full p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} />
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="block text-sm font-semibold text-gray-700">المدة (دقيقة)</label>
+                                            <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg">{duration} دقيقة</span>
+                                        </div>
+                                        <input type="range" min="15" max="180" step="15" value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
                                     </div>
-                                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2"><Icons.Plus className="w-5 h-5" /> {isLoading ? 'Syncing...' : 'Add to Agenda'}</button>
+
+                                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                                        <label className="block text-xs font-bold text-amber-800 mb-2 flex items-center gap-2 uppercase tracking-wider">
+                                            <Icons.Lock className="w-4 h-4" /> كود الحماية (مطلوب للإضافة)
+                                        </label>
+                                        <input type="password" placeholder="أدخل الكود هنا..." className="w-full p-2 bg-white border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm text-center tracking-widest" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} />
+                                    </div>
+
+                                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl transform transition-all active:scale-95 flex items-center justify-center gap-2 text-lg">
+                                        {isLoading ? <Icons.Refresh className="w-5 h-5 animate-spin" /> : <Icons.Plus className="w-5 h-5" />}
+                                        {isLoading ? 'جاري الاتصال...' : 'إضافة للأجندة'}
+                                    </button>
                                 </form>
                                 {notification && (
-                                    <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 items-start animate-fade-in ${notification.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200 animate-shake' : notification.type === 'warning' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+                                    <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 items-start animate-fade-in border ${notification.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : notification.type === 'warning' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
                                         {notification.type === 'error' ? <Icons.XCircle className="w-5 h-5 shrink-0" /> : notification.type === 'warning' ? <Icons.AlertCircle className="w-5 h-5 shrink-0" /> : <Icons.CheckCircle2 className="w-5 h-5 shrink-0" />}
-                                        <p>{notification.message}</p>
+                                        <p className="font-medium">{notification.message}</p>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* RIGHT: AGENDA */}
+                        {/* RIGHT: AGENDA VIEW */}
                         <div className="lg:col-span-8">
-                            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden min-h-[600px] flex flex-col">
-                                <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
-                                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200">
-                                        <button onClick={() => setViewMode('list')} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}><Icons.List className="w-4 h-4" /> List</button>
-                                        <button onClick={() => setViewMode('month')} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'month' ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}><Icons.LayoutGrid className="w-4 h-4" /> Month</button>
+                            <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
+                                <div className="bg-gray-50/50 p-6 border-b border-gray-100 flex justify-between items-center backdrop-blur-sm sticky top-0 z-10">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl border border-gray-200">
+                                            <button onClick={() => setViewMode('list')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'list' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}><Icons.List className="w-4 h-4" /> قائمة</button>
+                                            <button onClick={() => setViewMode('month')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'month' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}><Icons.LayoutGrid className="w-4 h-4" /> تقويم</button>
+                                        </div>
+                                        {filterDate && (
+                                            <button onClick={clearFilter} className="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-bold border border-red-200 transition-colors animate-fade-in">
+                                                <Icons.X className="w-4 h-4" />
+                                                إلغاء الفلتر
+                                            </button>
+                                        )}
                                     </div>
-                                    <span className="text-sm text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">{items.length} Items</span>
+                                    <span className="text-xs font-bold text-gray-500 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">{displayedItems.length} عنصر</span>
                                 </div>
-                                <div className="p-6 flex-grow">
+                                <div className="p-6 flex-grow bg-gray-50/30">
                                     {viewMode === 'month' ? renderCalendar() : (
-                                        items.length === 0 ? (
-                                            <div className="text-center py-20 opacity-50">
-                                                <Icons.Clock className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                                                <p className="text-xl font-medium text-slate-400">{isLoading ? 'Loading data...' : 'No courses scheduled yet.'}</p>
-                                                <p className="text-slate-400">Be the first to add a lesson!</p>
+                                        displayedItems.length === 0 ? (
+                                            <div className="text-center py-32 opacity-60 flex flex-col items-center">
+                                                <div className="bg-gray-100 p-6 rounded-full mb-4">
+                                                    <Icons.Clock className="w-12 h-12 text-gray-400" />
+                                                </div>
+                                                <p className="text-2xl font-bold text-gray-700 mb-2">{isLoading ? 'جاري تحميل البيانات...' : (filterDate ? `لا توجد مواعيد في ${filterDate}` : 'لا توجد مواعيد حالياً')}</p>
+                                                <p className="text-gray-500">{filterDate ? 'اختر يوماً آخر أو قم بإلغاء الفلتر.' : 'كن أول من يضيف درساً للأجندة!'}</p>
                                             </div>
                                         ) : (
-                                            <div className="space-y-4 animate-fade-in">
-                                                {Object.entries(items.reduce((acc, item) => {
+                                            <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
+                                                {/* Header for Filtered View */}
+                                                {filterDate && (
+                                                    <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-indigo-800 text-sm font-bold text-center mb-4">
+                                                        عرض المواعيد ليوم: {filterDate}
+                                                    </div>
+                                                )}
+
+                                                {Object.entries(displayedItems.reduce((acc, item) => {
                                                     const dateKey = new Date(item.start).toDateString();
                                                     if (!acc[dateKey]) acc[dateKey] = [];
                                                     acc[dateKey].push(item);
                                                     return acc;
                                                 }, {})).map(([dateKey, daysItems]) => (
-                                                    <div key={dateKey} className="mb-8">
-                                                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 ml-2">{formatDate(daysItems[0].start)}</h3>
-                                                        <div className="relative border-l-2 border-indigo-100 ml-4 space-y-6 pb-2">
+                                                    <div key={dateKey} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                                        <div className="bg-indigo-50/50 px-6 py-3 border-b border-indigo-50 flex items-center gap-2">
+                                                            <Icons.Calendar className="w-4 h-4 text-indigo-500" />
+                                                            <h3 className="text-sm font-bold text-indigo-900">{formatDate(daysItems[0].start)}</h3>
+                                                        </div>
+                                                        <div className="divide-y divide-gray-50">
                                                             {daysItems.map((item) => {
                                                                 const startDate = new Date(item.start);
                                                                 const endDate = new Date(item.end);
                                                                 return (
-                                                                    <div key={item.id} className="relative pl-8 group">
-                                                                        <div className="absolute -left-[9px] top-4 w-4 h-4 rounded-full bg-white border-4 border-indigo-500 group-hover:scale-110 transition-transform"></div>
-                                                                        <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                                                            <div className="min-w-[120px]">
-                                                                                <div className="text-xl font-bold text-indigo-900">{formatTime(startDate)}</div>
-                                                                                <div className="text-xs font-semibold text-slate-400 flex items-center gap-1 mt-1">{formatTime(endDate)}<span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full">{item.duration}m</span></div>
-                                                                            </div>
-                                                                            <div className="flex-grow border-l-0 sm:border-l-2 border-slate-100 sm:pl-6">
-                                                                                <h4 className="text-lg font-bold text-slate-800">{item.course}</h4>
-                                                                                <p className="text-slate-500 text-sm flex items-center gap-1"><Icons.ArrowRight className="w-3 h-3" /> {item.lesson}</p>
-                                                                            </div>
-                                                                            <button onClick={() => deleteItem(item.id)} className="text-slate-300 hover:text-red-500 transition-colors p-2 rounded-full hover:bg-red-50 self-end sm:self-center"><Icons.Trash2 className="w-5 h-5" /></button>
+                                                                    <div key={item.id} className="p-5 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row sm:items-center gap-4 group">
+                                                                        <div className="min-w-[100px] text-center sm:text-right border-l-0 sm:border-l-2 border-indigo-100 pl-0 sm:pl-4">
+                                                                            <div className="text-lg font-black text-gray-800">{formatTime(startDate)}</div>
+                                                                            <div className="text-xs font-semibold text-gray-400 mt-1 bg-gray-100 inline-block px-2 py-0.5 rounded-md">{item.duration} دقيقة</div>
                                                                         </div>
+                                                                        <div className="flex-grow">
+                                                                            <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                                                {item.course}
+                                                                            </h4>
+                                                                            <p className="text-gray-500 text-sm flex items-center gap-2 mt-1">
+                                                                                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full"></span> {item.lesson}
+                                                                            </p>
+                                                                        </div>
+                                                                        <button 
+                                                                            onClick={() => deleteItem(item.id)} 
+                                                                            className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition-all opacity-100 sm:opacity-0 group-hover:opacity-100 self-end sm:self-center"
+                                                                            title="حذف"
+                                                                        >
+                                                                            <Icons.Trash2 className="w-5 h-5" />
+                                                                        </button>
                                                                     </div>
                                                                 );
                                                             })}
