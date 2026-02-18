@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Agenda (Hybrid)</title>
+    <title>Smart Agenda (Local)</title>
     
     <!-- 1. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -14,15 +14,6 @@
     
     <!-- 3. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- 4. Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        window.firebaseModules = { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, serverTimestamp, getDocs };
-    </script>
 
     <style>
         .scrollbar-hide::-webkit-scrollbar { display: none; }
@@ -62,18 +53,18 @@
             LayoutGrid: (props) => <Icon {...props} path={<><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></>} />,
             Lock: (props) => <Icon {...props} path={<><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />,
             XCircle: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></>} />,
-            Cloud: (props) => <Icon {...props} path={<><path d="M17.5 19c0-1.7-1.3-3-3-3h-11c-1.7 0-3 1.3-3 3s1.3 3 3 3h11c1.7 0 3-1.3 3-3z"/><path d="M17.5 16c2.5 0 4.5-2 4.5-4.5S19.5 7 17 7c-.5 0-1 .1-1.4.3C14.8 4.3 11.7 3 8.5 5.5 5.8 7.6 5 11.5 6.5 14.5"/></>} />,
-            WifiOff: (props) => <Icon {...props} path={<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>} />,
-            Refresh: (props) => <Icon {...props} path={<><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></>} />
+            HardDrive: (props) => <Icon {...props} path={<><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></>} />
         };
 
         function App() {
-            // State
-            const [items, setItems] = useState([]);
-            const [user, setUser] = useState(null);
+            // --- Local Storage Initialization ---
+            const [items, setItems] = useState(() => {
+                const saved = localStorage.getItem('smartAgendaItems');
+                return saved ? JSON.parse(saved) : [];
+            });
+
             const [viewMode, setViewMode] = useState('list');
             const [currentMonth, setCurrentMonth] = useState(new Date());
-            const [isOffline, setIsOffline] = useState(false);
 
             // Form State
             const [courseName, setCourseName] = useState('');
@@ -88,144 +79,11 @@
             const SECRET_DELETE_CODE = "2026#ET5";
             
             const [notification, setNotification] = useState(null);
-            const [isMigrating, setIsMigrating] = useState(false);
 
-            // Firebase Config
-            const COLLECTION_NAME = 'agendaItems';
-            
-            // --- Init & Fallback Strategy ---
+            // --- Save to Local Storage on Change ---
             useEffect(() => {
-                const initApp = async () => {
-                    let firebaseAuthSuccess = false;
-
-                    try {
-                        // Check if config exists (it won't exist on standard GitHub Pages host)
-                        if (typeof __firebase_config === 'undefined' || !window.firebaseModules) {
-                            throw new Error("Configuration missing - switching to offline");
-                        }
-                        
-                        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore, collection, addDoc } = window.firebaseModules;
-                        
-                        const firebaseConfig = JSON.parse(__firebase_config);
-                        const app = initializeApp(firebaseConfig);
-                        const auth = getAuth(app);
-                        const db = getFirestore(app);
-                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                        
-                        // Auth Flow
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-
-                        onAuthStateChanged(auth, async (u) => {
-                            setUser(u);
-                            if (u) {
-                                // Migration Check (Online Mode)
-                                const localData = localStorage.getItem('smartAgendaItems');
-                                if (localData) {
-                                    try {
-                                        const parsed = JSON.parse(localData);
-                                        if (parsed.length > 0) {
-                                            setIsMigrating(true);
-                                            const colRef = collection(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME);
-                                            let successCount = 0;
-                                            for (let item of parsed) {
-                                                const { id, ...itemData } = item;
-                                                await addDoc(colRef, { ...itemData, uploadedAt: new Date().toISOString() });
-                                                successCount++;
-                                            }
-                                            if (successCount > 0) {
-                                                setNotification({ type: 'success', message: `Synced ${successCount} items to cloud!` });
-                                                localStorage.setItem('smartAgendaItems_backup', localData);
-                                                localStorage.removeItem('smartAgendaItems');
-                                            }
-                                        }
-                                    } catch (err) { console.error(err); }
-                                    setIsMigrating(false);
-                                }
-                            }
-                        });
-
-                        // Real-time Listener (Online Mode)
-                        const q = collection(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME);
-                        onSnapshot(q, (snapshot) => {
-                            const loadedItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                            loadedItems.sort((a, b) => new Date(a.start) - new Date(b.start));
-                            setItems(loadedItems);
-                        }, (error) => {
-                            console.warn("Connection lost, switching offline");
-                            enableOfflineMode();
-                        });
-
-                        firebaseAuthSuccess = true;
-
-                    } catch (err) {
-                        console.warn("Firebase Init Failed:", err);
-                        enableOfflineMode();
-                    }
-                };
-                
-                initApp();
-            }, []);
-
-            const enableOfflineMode = () => {
-                setIsOffline(true);
-                setUser({ uid: 'offline-user' }); // Mock user to unblock UI
-                
-                // Load Local Data
-                const local = localStorage.getItem('smartAgendaItems');
-                if (local) {
-                    try {
-                        setItems(JSON.parse(local));
-                    } catch(e) { setItems([]); }
-                }
-            };
-
-            // --- Manual Recovery Function ---
-            const handleManualRecovery = async () => {
-                const backup = localStorage.getItem('smartAgendaItems_backup');
-                const original = localStorage.getItem('smartAgendaItems');
-                const dataToRestore = original || backup;
-                
-                if (!dataToRestore) {
-                    setNotification({ type: 'warning', message: 'No local backup found.' });
-                    setTimeout(() => setNotification(null), 3000);
-                    return;
-                }
-                
-                if (isOffline) {
-                    setItems(JSON.parse(dataToRestore));
-                    localStorage.setItem('smartAgendaItems', dataToRestore);
-                    setNotification({ type: 'success', message: 'Restored to Local View.' });
-                    setTimeout(() => setNotification(null), 3000);
-                    return;
-                }
-
-                if (!confirm("Upload local backup to cloud?")) return;
-                
-                setIsMigrating(true);
-                try {
-                    const parsed = JSON.parse(dataToRestore);
-                    const { getFirestore, collection, addDoc } = window.firebaseModules;
-                    const db = getFirestore();
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME);
-                    
-                    let count = 0;
-                    for (let item of parsed) {
-                         const { id, ...itemData } = item;
-                         await addDoc(colRef, { ...itemData, uploadedAt: new Date().toISOString(), restored: true });
-                         count++;
-                    }
-                    setNotification({ type: 'success', message: `Restored ${count} items!` });
-                } catch(e) {
-                    setNotification({ type: 'error', message: 'Restore failed.' });
-                }
-                setIsMigrating(false);
-                setTimeout(() => setNotification(null), 3000);
-            };
+                localStorage.setItem('smartAgendaItems', JSON.stringify(items));
+            }, [items]);
 
             // --- Helpers ---
             const formatDate = (dateStr) => {
@@ -241,10 +99,9 @@
             const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
             // --- Handlers ---
-            const handleAddItem = async (e) => {
+            const handleAddItem = (e) => {
                 e.preventDefault();
                 
-                // Security Check
                 if (accessCode !== SECRET_ADD_CODE) {
                     setNotification({ type: 'error', message: 'Incorrect Access Code!' });
                     setTimeout(() => setNotification(null), 3000);
@@ -258,17 +115,21 @@
                 let proposedEnd = new Date(proposedStart.getTime() + durationMs);
                 let originalTime = formatTime(proposedStart);
 
-                // Check conflicts
+                // Filter items for this specific day
                 const dayItems = items.filter(item => {
                     const itemDate = new Date(item.start);
                     return itemDate.toDateString() === proposedStart.toDateString();
                 });
+
                 dayItems.sort((a, b) => new Date(a.start) - new Date(b.start));
 
                 let isRescheduled = false;
+
+                // Smart Scheduling Logic
                 for (let item of dayItems) {
                     const existingStart = new Date(item.start);
                     const existingEnd = new Date(item.end);
+
                     if (proposedStart < existingEnd && proposedEnd > existingStart) {
                         proposedStart = existingEnd; 
                         proposedEnd = new Date(proposedStart.getTime() + durationMs);
@@ -276,83 +137,41 @@
                     }
                 }
 
-                const newItemData = {
+                const newItem = {
+                    id: Date.now(), // Unique ID based on timestamp
                     course: courseName,
                     lesson: lessonName,
                     start: proposedStart.toISOString(),
                     end: proposedEnd.toISOString(),
-                    duration: duration,
-                    createdAt: new Date().toISOString()
+                    duration: duration
                 };
 
-                // --- OFFLINE SAVE ---
-                if (isOffline) {
-                    const newItem = { id: Date.now(), ...newItemData };
-                    const updated = [...items, newItem].sort((a, b) => new Date(a.start) - new Date(b.start));
-                    setItems(updated);
-                    localStorage.setItem('smartAgendaItems', JSON.stringify(updated));
-                    
-                    if (isRescheduled) {
-                        setNotification({ type: 'warning', message: `Conflict! Moved to ${formatTime(proposedStart)} (Local).` });
-                    } else {
-                        setNotification({ type: 'success', message: `Added (Local Mode).` });
-                    }
-                    setCourseName(''); setLessonName('');
-                    setTimeout(() => setNotification(null), 5000);
-                    return;
+                const updatedItems = [...items, newItem].sort((a, b) => new Date(a.start) - new Date(b.start));
+                setItems(updatedItems);
+
+                if (isRescheduled) {
+                    setNotification({ type: 'warning', message: `Conflict! Moved to ${formatTime(proposedStart)}.` });
+                } else {
+                    setNotification({ type: 'success', message: `Added successfully.` });
                 }
 
-                // --- ONLINE SAVE ---
-                try {
-                    const { getFirestore, collection, addDoc } = window.firebaseModules;
-                    const db = getFirestore();
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                    
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME), newItemData);
-
-                    if (isRescheduled) {
-                        setNotification({ type: 'warning', message: `Conflict! Moved to ${formatTime(proposedStart)}.` });
-                    } else {
-                        setNotification({ type: 'success', message: `Added successfully.` });
-                    }
-                    setCourseName(''); setLessonName('');
-                    setTimeout(() => setNotification(null), 5000);
-                } catch (err) {
-                    setNotification({ type: 'error', message: 'Failed to save. Switching to Offline.' });
-                    enableOfflineMode();
-                }
+                setCourseName('');
+                setLessonName('');
+                setTimeout(() => setNotification(null), 5000);
             };
 
-            const deleteItem = async (id) => {
+            const deleteItem = (id) => {
                 const userCode = prompt("Enter security code to delete:");
+                
                 if (userCode !== SECRET_DELETE_CODE) {
                     setNotification({ type: 'error', message: 'Incorrect deletion code!' });
                     setTimeout(() => setNotification(null), 3000);
                     return;
                 }
 
-                // --- OFFLINE DELETE ---
-                if (isOffline) {
-                    const updated = items.filter(item => item.id !== id);
-                    setItems(updated);
-                    localStorage.setItem('smartAgendaItems', JSON.stringify(updated));
-                    setNotification({ type: 'success', message: 'Deleted (Local).' });
-                    setTimeout(() => setNotification(null), 3000);
-                    return;
-                }
-
-                // --- ONLINE DELETE ---
-                try {
-                    const { getFirestore, doc, deleteDoc } = window.firebaseModules;
-                    const db = getFirestore();
-                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                    
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME, id));
-                    setNotification({ type: 'success', message: 'Item deleted from cloud.' });
-                    setTimeout(() => setNotification(null), 3000);
-                } catch (error) {
-                    setNotification({ type: 'error', message: 'Delete failed.' });
-                }
+                setItems(items.filter(item => item.id !== id));
+                setNotification({ type: 'success', message: 'Item deleted.' });
+                setTimeout(() => setNotification(null), 3000);
             };
 
             const changeMonth = (offset) => {
@@ -426,27 +245,16 @@
                     <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
                         {/* HEADER */}
                         <div className="lg:col-span-12 mb-4">
-                            <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                                <div>
-                                    <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-                                        <Icons.BookOpen className="text-indigo-600 w-8 h-8" />
-                                        Smart Agenda 
-                                        {isOffline ? 
-                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full flex items-center gap-1"><Icons.WifiOff className="w-3 h-3" /> Offline</span> :
-                                            <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full flex items-center gap-1"><Icons.Cloud className="w-3 h-3" /> Online</span>
-                                        }
-                                    </h1>
-                                    <p className="text-slate-500 mt-2">
-                                        {isOffline ? "Saved to your device (Offline Mode)." : "Live schedule shared with everyone."}
-                                    </p>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    {isMigrating && <div className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded-lg border border-blue-100 animate-pulse">Syncing data...</div>}
-                                    <button onClick={handleManualRecovery} className="text-xs flex items-center gap-1 text-slate-400 hover:text-indigo-600 underline">
-                                        <Icons.Refresh className="w-3 h-3" /> Recover Local Data
-                                    </button>
-                                </div>
-                            </div>
+                            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                                <Icons.BookOpen className="text-indigo-600 w-8 h-8" />
+                                Smart Agenda 
+                                <span className="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded-full flex items-center gap-1">
+                                    <Icons.HardDrive className="w-3 h-3" /> Local Storage
+                                </span>
+                            </h1>
+                            <p className="text-slate-500 mt-2">
+                                Data is saved securely in your browser's memory.
+                            </p>
                         </div>
 
                         {/* LEFT: ADD FORM */}
@@ -465,7 +273,7 @@
                                         <label className="block text-sm font-medium text-slate-600 mb-1 flex items-center gap-2"><Icons.Lock className="w-4 h-4 text-slate-400" /> Access Code (Required)</label>
                                         <input type="password" placeholder="Enter Code to Add..." className="w-full p-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} />
                                     </div>
-                                    <button type="submit" disabled={!user} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2"><Icons.Plus className="w-5 h-5" /> {user ? 'Add to Agenda' : 'Loading...'}</button>
+                                    <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2"><Icons.Plus className="w-5 h-5" /> Add to Agenda</button>
                                 </form>
                                 {notification && (
                                     <div className={`mt-4 p-4 rounded-xl text-sm flex gap-3 items-start animate-fade-in ${notification.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200 animate-shake' : notification.type === 'warning' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
