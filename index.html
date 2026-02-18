@@ -15,8 +15,8 @@
     <!-- 3. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- 4. Supabase Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 4. Supabase Client (Stable UNPKG link) -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <style>
         .scrollbar-hide::-webkit-scrollbar { display: none; }
@@ -32,28 +32,14 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         // ---------------------------------------------------------
-        // 🛑 استبدل البيانات هنا ببيانات مشروع SUPABASE الخاص بك
+        // بيانات مشروع SUPABASE
         // ---------------------------------------------------------
-        const SUPABASE_URL = 'https://aawyndbhkgiombfqinyf.supabase.co'; // مثال: https://xyz.supabase.co
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhd3luZGJoa2dpb21iZnFpbnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNjEwODYsImV4cCI6MjA4NTczNzA4Nn0.up0E5V0kIsmCduvoGlYB9ntcg7Vdgu6TyfrumKo8Pe4'; // المفتاح الـ anon/public
+        const SUPABASE_URL = 'https://aawyndbhkgiombfqinyf.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFhd3luZGJoa2dpb21iZnFpbnlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNjEwODYsImV4cCI6MjA4NTczNzA4Nn0.up0E5V0kIsmCduvoGlYB9ntcg7Vdgu6TyfrumKo8Pe4';
         // ---------------------------------------------------------
-
-        // Initialize Supabase safely
-        let supabase = null;
-        let isSupabaseConfigured = false;
-
-        // Check if URL is valid (basic check) before initializing to prevent crashes
-        if (SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_URL.startsWith('http')) {
-            try {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                isSupabaseConfigured = true;
-            } catch (err) {
-                console.error("Supabase init failed:", err);
-            }
-        }
 
         // --- Icons ---
         const Icon = ({ path, className }) => (
@@ -82,37 +68,8 @@
             Settings: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></>} />
         };
 
-        function SetupScreen() {
-            return (
-                <div className="min-h-screen flex items-center justify-center p-4">
-                    <div className="bg-white p-8 rounded-2xl shadow-xl max-w-lg w-full text-center border border-slate-200">
-                        <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Icons.Settings className="w-8 h-8" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-slate-800 mb-3">Supabase Setup Required</h2>
-                        <p className="text-slate-600 mb-6">
-                            To enable online features, you need to add your Supabase credentials to the code.
-                        </p>
-                        <div className="bg-slate-50 p-4 rounded-xl text-left text-sm font-mono text-slate-600 border border-slate-200 mb-6 overflow-x-auto">
-                            <p className="mb-2 text-indigo-600 font-bold">// Edit index.html lines 39-40:</p>
-                            <p>const SUPABASE_URL = 'YOUR_URL_HERE';</p>
-                            <p>const SUPABASE_KEY = 'YOUR_KEY_HERE';</p>
-                        </div>
-                        <p className="text-xs text-slate-400">
-                            1. Go to Supabase Dashboard > Settings > API.<br/>
-                            2. Copy "Project URL" and "anon" Key.<br/>
-                            3. Paste them into this file and save.
-                        </p>
-                    </div>
-                </div>
-            );
-        }
-
         function App() {
-            if (!isSupabaseConfigured) {
-                return <SetupScreen />;
-            }
-
+            const [supabaseClient, setSupabaseClient] = useState(null);
             const [items, setItems] = useState([]);
             const [viewMode, setViewMode] = useState('list');
             const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -132,12 +89,27 @@
             
             const [notification, setNotification] = useState(null);
 
+            // --- Initialize Supabase Safely ---
+            useEffect(() => {
+                if (window.supabase && window.supabase.createClient) {
+                    try {
+                        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                        setSupabaseClient(client);
+                    } catch (error) {
+                        console.error("Failed to init Supabase:", error);
+                        setNotification({ type: 'error', message: 'Config Error' });
+                    }
+                } else {
+                    console.error("Supabase library not loaded yet.");
+                }
+            }, []);
+
             // --- Fetch Data ---
             const fetchItems = async () => {
-                if (!supabase) return;
+                if (!supabaseClient) return;
                 
                 setIsLoading(true);
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('agenda_items')
                     .select('*')
                     .order('start_time', { ascending: true });
@@ -160,75 +132,57 @@
                 setIsLoading(false);
             };
 
-            // --- Auto-Sync Local Data on Load ---
+            // --- Load Data & Sync & Subscription ---
             useEffect(() => {
-                const syncLocalData = async () => {
-                    if (!supabase) return;
+                if (supabaseClient) {
+                    // 1. Fetch Initial Data
+                    fetchItems();
 
-                    const localDataString = localStorage.getItem('smartAgendaItems');
-                    if (localDataString) {
-                        try {
-                            const localItems = JSON.parse(localDataString);
-                            if (localItems.length > 0) {
-                                // Show sync notification
-                                setNotification({ type: 'warning', message: 'Syncing local data to cloud...' });
-
-                                // Map local format to DB format
-                                const itemsToUpload = localItems.map(item => ({
-                                    course: item.course,
-                                    lesson: item.lesson,
-                                    start_time: item.start, 
-                                    end_time: item.end,
-                                    duration: item.duration
-                                }));
-
-                                // Insert into Supabase
-                                const { error } = await supabase
-                                    .from('agenda_items')
-                                    .insert(itemsToUpload);
-
-                                if (!error) {
-                                    // Clear local storage after successful upload
-                                    localStorage.removeItem('smartAgendaItems');
-                                    setNotification({ type: 'success', message: 'Local data synced successfully!' });
-                                    fetchItems(); // Refresh
-                                } else {
-                                    console.error('Auto-sync error:', error);
+                    // 2. Auto-Sync Local Data
+                    const syncLocalData = async () => {
+                        const localDataString = localStorage.getItem('smartAgendaItems');
+                        if (localDataString) {
+                            try {
+                                const localItems = JSON.parse(localDataString);
+                                if (localItems.length > 0) {
+                                    setNotification({ type: 'warning', message: 'Syncing local data...' });
+                                    const itemsToUpload = localItems.map(item => ({
+                                        course: item.course,
+                                        lesson: item.lesson,
+                                        start_time: item.start, 
+                                        end_time: item.end,
+                                        duration: item.duration
+                                    }));
+                                    const { error } = await supabaseClient.from('agenda_items').insert(itemsToUpload);
+                                    if (!error) {
+                                        localStorage.removeItem('smartAgendaItems');
+                                        setNotification({ type: 'success', message: 'Local data synced!' });
+                                        fetchItems();
+                                    }
                                 }
-                            }
-                        } catch (e) {
-                            console.error("Local data parse error", e);
+                            } catch (e) { console.error(e); }
                         }
-                    }
-                };
+                    };
+                    syncLocalData();
 
-                syncLocalData();
-            }, []);
-
-            // --- Initial Load & Realtime Subscription ---
-            useEffect(() => {
-                fetchItems();
-
-                if (supabase) {
-                    // Realtime subscription to update instantly when anyone adds/deletes
-                    const channel = supabase
+                    // 3. Realtime Subscription
+                    const channel = supabaseClient
                         .channel('agenda_changes')
-                        .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_items' }, (payload) => {
-                            fetchItems(); // Refetch on any change
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'agenda_items' }, () => {
+                            fetchItems();
                         })
                         .subscribe();
 
                     return () => {
-                        supabase.removeChannel(channel);
+                        supabaseClient.removeChannel(channel);
                     };
                 }
-            }, []);
+            }, [supabaseClient]);
 
             // --- Handlers ---
             const handleAddItem = async (e) => {
                 e.preventDefault();
-                
-                if (!supabase) return;
+                if (!supabaseClient) return;
 
                 if (accessCode !== SECRET_ADD_CODE) {
                     setNotification({ type: 'error', message: 'Incorrect Access Code!' });
@@ -242,7 +196,7 @@
                 let durationMs = duration * 60 * 1000;
                 let proposedEnd = new Date(proposedStart.getTime() + durationMs);
 
-                // Client-side conflict check (for nice UI feedback)
+                // Client-side conflict check
                 const dayItems = items.filter(item => {
                     const itemDate = new Date(item.start);
                     return itemDate.toDateString() === proposedStart.toDateString();
@@ -260,21 +214,18 @@
                     }
                 }
 
-                // Insert into Supabase
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('agenda_items')
-                    .insert([
-                        { 
-                            course: courseName,
-                            lesson: lessonName,
-                            start_time: proposedStart.toISOString(),
-                            end_time: proposedEnd.toISOString(),
-                            duration: duration
-                        }
-                    ]);
+                    .insert([{ 
+                        course: courseName,
+                        lesson: lessonName,
+                        start_time: proposedStart.toISOString(),
+                        end_time: proposedEnd.toISOString(),
+                        duration: duration
+                    }]);
 
                 if (error) {
-                    setNotification({ type: 'error', message: 'Error saving to database.' });
+                    setNotification({ type: 'error', message: 'Error saving.' });
                 } else {
                     if (isRescheduled) {
                         setNotification({ type: 'warning', message: `Conflict! Moved to ${proposedStart.toLocaleTimeString()}.` });
@@ -284,31 +235,23 @@
                     setCourseName('');
                     setLessonName('');
                 }
-                
                 setTimeout(() => setNotification(null), 5000);
             };
 
             const deleteItem = async (id) => {
-                if (!supabase) return;
-
+                if (!supabaseClient) return;
                 const userCode = prompt("Enter security code to delete:");
                 if (userCode !== SECRET_DELETE_CODE) {
                     setNotification({ type: 'error', message: 'Incorrect deletion code!' });
                     setTimeout(() => setNotification(null), 3000);
                     return;
                 }
-
-                const { error } = await supabase
-                    .from('agenda_items')
-                    .delete()
-                    .eq('id', id);
-
+                const { error } = await supabaseClient.from('agenda_items').delete().eq('id', id);
                 if (error) {
-                    setNotification({ type: 'error', message: 'Could not delete item.' });
+                    setNotification({ type: 'error', message: 'Delete failed.' });
                 } else {
                     setNotification({ type: 'success', message: 'Item deleted.' });
                 }
-                
                 setTimeout(() => setNotification(null), 3000);
             };
 
@@ -371,7 +314,7 @@
                                         <Icons.BookOpen className="text-indigo-600 w-8 h-8" />
                                         Smart Agenda 
                                         <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
-                                            <Icons.Database className="w-3 h-3" /> Supabase Online
+                                            <Icons.Database className="w-3 h-3" /> Online
                                         </span>
                                     </h1>
                                     <p className="text-slate-500 mt-2">
